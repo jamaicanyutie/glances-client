@@ -1,5 +1,7 @@
 # Glances Client
 
+![banner](screenshots/banner.png)
+
 [![CI](https://github.com/m95jfzp5mt-lgtm/glances-client/actions/workflows/ci.yml/badge.svg)](https://github.com/m95jfzp5mt-lgtm/glances-client/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/m95jfzp5mt-lgtm/glances-client?color=2DD4BF&label=release)](https://github.com/m95jfzp5mt-lgtm/glances-client/releases)
 [![Downloads](https://img.shields.io/github/downloads/m95jfzp5mt-lgtm/glances-client/total?color=2DD4BF)](https://github.com/m95jfzp5mt-lgtm/glances-client/releases)
