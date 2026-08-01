@@ -1,0 +1,492 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../data/models/cpu_info.dart';
+import '../../../data/models/docker_container_info.dart';
+import '../../../data/models/fs_info.dart';
+import '../../../data/models/glances_all.dart';
+import '../../../data/models/load_info.dart';
+import '../../../data/models/mem_info.dart';
+import '../../../data/providers.dart';
+import '../../components/error_view.dart';
+import '../../components/loading_view.dart';
+import '../../components/server_reset_button.dart';
+import '../../theme/colors.dart';
+import '../../theme/theme.dart';
+import '../../utils/formatters.dart';
+
+/// Landing screen: live overview of the host.
+///
+/// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders a
+/// dashboard of metric cards. Deliberately display-only: v1 has no drill-down
+/// navigation from the dashboard (that is a v2 feature); the bottom navigation
+/// bar is the only way to switch screens. The list supports pull-to-refresh.
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: const <Widget>[ServerResetButton()],
+      ),
+      body: allStats.when(
+        loading: () => const LoadingView(),
+        error: (Object error, StackTrace stackTrace) => ErrorView(
+          message: '$error',
+          onRetry: () => ref.invalidate(allStatsProvider),
+        ),
+        data: (GlancesAll data) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              await ref.read(allStatsProvider.notifier).refresh();
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(child: _CpuCard(cpu: data.cpu)),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: _MemoryCard(mem: data.mem)),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _LoadCard(load: data.load),
+                const SizedBox(height: AppSpacing.md),
+                _FilesystemCard(fs: data.fs),
+                const SizedBox(height: AppSpacing.md),
+                _DockerCard(docker: data.docker),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Shared shell for the dashboard cards: a themed [Card] with a title row and
+/// the card content. Cards are display-only in v1.
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(icon, size: 16, color: AppColors.textSecondary),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  title,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Half-width card showing total CPU usage.
+class _CpuCard extends StatelessWidget {
+  const _CpuCard({required this.cpu});
+
+  final CpuInfo? cpu;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final double percent = cpu?.total ?? 0;
+    final String cores = cpu?.cpucore?.toString() ?? '—';
+    return _StatCard(
+      title: 'CPU',
+      icon: Icons.memory,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            formatPercent(cpu?.total),
+            style: textTheme.headlineMedium?.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '$cores cores',
+            style: textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LinearProgressIndicator(
+            value: _barFraction(percent),
+            color: _barColor(percent),
+            backgroundColor: AppColors.surfaceAlt,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Half-width card showing memory usage.
+class _MemoryCard extends StatelessWidget {
+  const _MemoryCard({required this.mem});
+
+  final MemInfo? mem;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final double percent = mem?.percent ?? 0;
+    return _StatCard(
+      title: 'Memory',
+      icon: Icons.speed,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            formatPercent(mem?.percent),
+            style: textTheme.headlineMedium?.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${formatBytes(mem?.used)} / ${formatBytes(mem?.total)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LinearProgressIndicator(
+            value: _barFraction(percent),
+            color: _barColor(percent),
+            backgroundColor: AppColors.surfaceAlt,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-width card showing the 1/5/15-minute load averages, normalized by the
+/// number of CPU cores.
+class _LoadCard extends StatelessWidget {
+  const _LoadCard({required this.load});
+
+  final LoadInfo? load;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StatCard(
+      title: 'Load Average',
+      icon: Icons.av_timer,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _LoadColumn(
+              label: '1m',
+              value: load?.min1,
+              cores: load?.cpucore,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _LoadColumn(
+              label: '5m',
+              value: load?.min5,
+              cores: load?.cpucore,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _LoadColumn(
+              label: '15m',
+              value: load?.min15,
+              cores: load?.cpucore,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One load-average column inside [_LoadCard].
+class _LoadColumn extends StatelessWidget {
+  const _LoadColumn({
+    required this.label,
+    required this.value,
+    required this.cores,
+  });
+
+  final String label;
+  final double? value;
+  final int? cores;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final double fraction = _loadBarFraction(value, cores);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          label,
+          style: textTheme.labelMedium?.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          _formatLoad(value),
+          style: textTheme.titleMedium?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        LinearProgressIndicator(
+          value: fraction,
+          color: _barColor(fraction * 100),
+          backgroundColor: AppColors.surfaceAlt,
+          minHeight: 4,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-width card listing the three most-used filesystems.
+class _FilesystemCard extends StatelessWidget {
+  const _FilesystemCard({required this.fs});
+
+  final List<FsInfo>? fs;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final List<FsInfo> mounts = _topMounts(fs);
+    return _StatCard(
+      title: 'Filesystems',
+      icon: Icons.storage,
+      child: mounts.isEmpty
+          ? Text(
+              'No filesystem data',
+              style: textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                for (final FsInfo mount in mounts) ...[
+                  _MountRow(mount: mount),
+                  if (mount != mounts.last) const SizedBox(height: AppSpacing.md),
+                ],
+              ],
+            ),
+    );
+  }
+
+  /// Returns up to three mounts sorted by usage, most-used first.
+  static List<FsInfo> _topMounts(List<FsInfo>? fs) {
+    if (fs == null) {
+      return const <FsInfo>[];
+    }
+    final List<FsInfo> sorted = List<FsInfo>.of(fs)
+      ..sort((FsInfo a, FsInfo b) {
+        final double? pa = a.percent;
+        final double? pb = b.percent;
+        if (pa == null && pb == null) {
+          return 0;
+        }
+        if (pa == null) {
+          return 1;
+        }
+        if (pb == null) {
+          return -1;
+        }
+        return pb.compareTo(pa);
+      });
+    return sorted.take(3).toList();
+  }
+}
+
+/// A single filesystem row: mount point, usage percentage and a thin bar.
+class _MountRow extends StatelessWidget {
+  const _MountRow({required this.mount});
+
+  final FsInfo mount;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final double percent = mount.percent ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                mount.mntPoint ?? '—',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              formatPercent(mount.percent),
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        LinearProgressIndicator(
+          value: _barFraction(percent),
+          color: _barColor(percent),
+          backgroundColor: AppColors.surfaceAlt,
+          minHeight: 4,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-width card summarizing Docker container status.
+class _DockerCard extends StatelessWidget {
+  const _DockerCard({required this.docker});
+
+  final List<DockerContainerInfo>? docker;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final List<DockerContainerInfo>? containers = docker;
+    final int running;
+    final String subtitle;
+    if (containers == null) {
+      running = 0;
+      subtitle = 'Docker not available';
+    } else {
+      running =
+          containers.where((DockerContainerInfo c) => c.isRunning).length;
+      subtitle = '$running running / ${containers.length} total';
+    }
+
+    final Color statusColor =
+        running > 0 ? AppColors.success : AppColors.textSecondary;
+    return _StatCard(
+      title: 'Docker',
+      icon: Icons.inventory_2,
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.circle, size: 8, color: statusColor),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyMedium?.copyWith(
+                color: statusColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Clamps [value] into the 0-100 range and returns the 0-1 fraction used by
+/// progress bars. Returns 0 when [value] is null.
+double _barFraction(double? value) {
+  if (value == null) {
+    return 0;
+  }
+  return (value.clamp(0, 100) / 100).toDouble();
+}
+
+/// Normalized load fraction (load average per core), clamped to 0-1 for the
+/// progress bar. Returns 0 when the load or core count is unavailable.
+double _loadBarFraction(double? load, int? cores) {
+  if (load == null || cores == null || cores <= 0) {
+    return 0;
+  }
+  return (load / cores).clamp(0.0, 1.0);
+}
+
+/// Formats a load average with two decimals, or `—` when null.
+String _formatLoad(double? load) {
+  if (load == null) {
+    return '—';
+  }
+  return load.toStringAsFixed(2);
+}
+
+/// Maps a usage percentage (0-100) onto the status color scale.
+Color _barColor(double percent) {
+  if (percent >= 85) {
+    return AppColors.danger;
+  }
+  if (percent >= 60) {
+    return AppColors.warning;
+  }
+  return AppColors.accent;
+}
