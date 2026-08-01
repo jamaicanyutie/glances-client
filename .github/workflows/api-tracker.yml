@@ -1,0 +1,24 @@
+name: API Tracker
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: api-tracker
+  cancel-in-progress: true
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Glances API capabilities
+        run: node scripts/api-tracker.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
