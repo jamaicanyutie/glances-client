@@ -4,6 +4,17 @@ A minimal, pure-black (AMOLED) monitoring client for the [Glances](https://githu
 
 **v1.0.0** — a deliberately lean, read-only mobile client.
 
+## Screenshots
+
+| | | |
+|---|---|---|
+| ![Home](screenshots/processed/01-home.png) | ![CPU](screenshots/processed/02-cpu.png) | ![Memory](screenshots/processed/03-memory.png) |
+| ![Disks](screenshots/processed/04-disks-top.png) | ![Network](screenshots/processed/05-network.png) | ![Services](screenshots/processed/06-services.png) |
+
+| |
+|---|
+| ![First-run connect dialog](screenshots/processed/07-connect-dialog.png) |
+
 ## Why this exists
 
 Glances has a web UI and can be accessed from a browser, but until now there was no dedicated mobile client that gives you the Glances dashboard in your pocket. This project fills that gap: a native Android app that talks directly to the Glances REST API (`/api/4`) and renders the live dashboard on a battery-friendly pure-black screen.
