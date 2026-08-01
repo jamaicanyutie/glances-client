@@ -2,9 +2,9 @@
 
 ![banner](screenshots/banner.png)
 
-[![CI](https://github.com/m95jfzp5mt-lgtm/glances-client/actions/workflows/ci.yml/badge.svg)](https://github.com/m95jfzp5mt-lgtm/glances-client/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/m95jfzp5mt-lgtm/glances-client?color=2DD4BF&label=release)](https://github.com/m95jfzp5mt-lgtm/glances-client/releases)
-[![Downloads](https://img.shields.io/github/downloads/m95jfzp5mt-lgtm/glances-client/total?color=2DD4BF)](https://github.com/m95jfzp5mt-lgtm/glances-client/releases)
+[![CI](https://github.com/jamaicanyutie/glances-client/actions/workflows/ci.yml/badge.svg)](https://github.com/jamaicanyutie/glances-client/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jamaicanyutie/glances-client?color=2DD4BF&label=release)](https://github.com/jamaicanyutie/glances-client/releases)
+[![Downloads](https://img.shields.io/github/downloads/jamaicanyutie/glances-client/total?color=2DD4BF)](https://github.com/jamaicanyutie/glances-client/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A minimal, pure-black (AMOLED) monitoring client for the [Glances](https://github.com/nicolargo/glances) system monitoring tool.
