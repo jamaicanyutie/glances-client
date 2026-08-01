@@ -38,6 +38,14 @@ class ServerConfig {
     if (value.isEmpty) {
       return 'Enter a server address';
     }
+    // If the user typed an explicit scheme it must be http or https. Checked
+    // before normalize() because e.g. `ftp://host` would otherwise be mangled
+    // into `http://ftp://host` and wrongly accepted.
+    if (value.contains('://') &&
+        !value.startsWith('http://') &&
+        !value.startsWith('https://')) {
+      return 'Scheme must be http or https';
+    }
     final Uri? uri = Uri.tryParse(normalize(value));
     if (uri == null || uri.host.isEmpty) {
       return 'Enter a valid address, e.g. https://host or 192.168.1.10:61208';
