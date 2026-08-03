@@ -41,7 +41,12 @@ jobs:
       - name: Build signed release APK
         run: flutter build apk --release
 
+      - name: Rename APK per app
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/glances-client-${{ matrix.app }}.apk
+
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
+          files: ${{ matrix.app }}/dist/glances-client-${{ matrix.app }}.apk
