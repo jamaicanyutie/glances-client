@@ -21,7 +21,7 @@ jobs:
       matrix:
         app: [minimal, advanced]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Glances API capabilities
         run: node scripts/api-tracker.mjs
         working-directory: ${{ matrix.app }}
