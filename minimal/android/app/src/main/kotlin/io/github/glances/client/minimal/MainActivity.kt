@@ -1,4 +1,4 @@
-package io.github.glances.client
+package io.github.glances.client.minimal
 
 import io.flutter.embedding.android.FlutterActivity
 
