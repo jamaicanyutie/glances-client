@@ -34,7 +34,14 @@ This repository contains two Flutter apps:
 
 ## Installation
 
-Download the latest APK from the [Releases](../../releases) page and install it on your Android device (allow "install from unknown sources" if prompted).
+Download the APK for the app you want from the [Releases](../../releases) page and install it on your Android device (allow "install from unknown sources" if prompted).
+
+Each release ships **two APKs** — pick the one matching the app you want:
+
+| APK file | App |
+|----------|-----|
+| `glances-client-minimal.apk` | **Glances Client** (minimal) — lean, read-only |
+| `glances-client-advanced.apk` | **Glances Client Advanced** — feature-rich, drill-down screens |
 
 On first launch, enter your Glances server address and tap **Connect**.
 
