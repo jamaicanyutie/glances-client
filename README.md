@@ -61,5 +61,7 @@ The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
 
 See [LICENSE](LICENSE).
 
-Third-party notices (including the LGPL-licensed Glances logo used by the
-advanced app icon): [`advanced/THIRD_PARTY_NOTICES.txt`](advanced/THIRD_PARTY_NOTICES.txt).
+Third-party notices (including the LGPL-licensed Glances REST API and
+Glances logo, used by both the minimal and advanced apps, as well as the
+icon they share): [`advanced/THIRD_PARTY_NOTICES.txt`](advanced/THIRD_PARTY_NOTICES.txt)
+and [`minimal/THIRD_PARTY_NOTICES.txt`](minimal/THIRD_PARTY_NOTICES.txt).
