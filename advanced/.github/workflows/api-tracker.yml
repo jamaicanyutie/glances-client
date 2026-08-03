@@ -16,14 +16,9 @@ concurrency:
 jobs:
   track:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        app: [minimal, advanced]
     steps:
       - uses: actions/checkout@v4
       - name: Check Glances API capabilities
         run: node scripts/api-tracker.mjs
-        working-directory: ${{ matrix.app }}
         env:
           GH_TOKEN: ${{ github.token }}

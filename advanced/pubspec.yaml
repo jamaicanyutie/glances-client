@@ -1,0 +1,36 @@
+name: glances_client_advanced
+description: "Glances Client Advanced v1 - feature-rich AMOLED monitoring client."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dio: ^5.11.0
+  fl_chart: ^1.2.0
+  flutter_riverpod: ^3.4.2
+  go_router: ^17.3.0
+  json_annotation: ^4.12.0
+  shared_preferences: ^2.5.4
+  multicast_dns: ^0.3.3+1
+  package_info_plus: ^10.2.1
+  path_provider: ^2.1.6
+  open_filex: ^4.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.15
+  json_serializable: ^6.9.4
+
+dependency_overrides:
+  meta: ^1.19.0
+
+flutter:
+  uses-material-design: true
