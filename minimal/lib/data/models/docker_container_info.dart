@@ -22,8 +22,22 @@ class DockerContainerInfo {
   final String? status;
 
   /// Container image (e.g. `nginx:latest`). Reported as a list in recent
-  /// Glances versions.
+  /// Glances versions, but can be a bare string on some setups (Unraid); both
+  /// forms are normalized to a list.
+  @JsonKey(fromJson: _imageFromJson)
   final List<String>? image;
+
+  /// Normalizes the `image` field, which Glances reports as a list of tags
+  /// normally, but as a single string on some engines/setups.
+  static List<String>? _imageFromJson(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is List) {
+      return value.map((Object? e) => e.toString()).toList();
+    }
+    return <String>[value.toString()];
+  }
 
   /// CPU usage percentage (0-100+ when accounting for multiple cores).
   @JsonKey(name: 'cpu_percent')
@@ -45,7 +59,29 @@ class DockerContainerInfo {
   final String? engine;
 
   /// Command the container was started with (e.g. `/entrypoint.sh`).
+  ///
+  /// Glances reports this as a space-joined string for active containers but
+  /// as the raw argv list (or null) for inactive/unhealthy ones — the
+  /// Docker engine only joins the list on the active-code path. Both forms
+  /// are normalized to a single string.
+  @JsonKey(fromJson: _commandFromJson)
   final String? command;
+
+  /// Normalizes the `command` field, which Glances reports either as a single
+  /// string (running/healthy containers) or as a list of arguments
+  /// (unhealthy/stopped containers), or null.
+  static String? _commandFromJson(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is String) {
+      return value;
+    }
+    if (value is List) {
+      return value.join(' ');
+    }
+    return value.toString();
+  }
 
   /// Container creation timestamp (ISO-8601).
   final String? created;

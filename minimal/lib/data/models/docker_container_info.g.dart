@@ -11,9 +11,7 @@ DockerContainerInfo _$DockerContainerInfoFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String?,
       id: json['id'] as String?,
       status: json['status'] as String?,
-      image: (json['image'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
+      image: DockerContainerInfo._imageFromJson(json['image']),
       cpuPercent: (json['cpu_percent'] as num?)?.toDouble(),
       memPercent: (json['mem_percent'] as num?)?.toDouble(),
       memUsage: (json['mem_usage'] as Map<String, dynamic>?)?.map(
@@ -21,7 +19,7 @@ DockerContainerInfo _$DockerContainerInfoFromJson(Map<String, dynamic> json) =>
       ),
       state: json['state'] as String?,
       engine: json['engine'] as String?,
-      command: json['command'] as String?,
+      command: DockerContainerInfo._commandFromJson(json['command']),
       created: json['created'] as String?,
       uptime: json['uptime'] as String?,
       ports: json['ports'] as String?,
