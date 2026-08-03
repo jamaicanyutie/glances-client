@@ -1,41 +1,31 @@
 # Glances Client
 
-![banner](screenshots/banner.png)
+![banner](minimal/screenshots/banner.png)
 
 [![CI](https://github.com/jamaicanyutie/glances-client/actions/workflows/ci.yml/badge.svg)](https://github.com/jamaicanyutie/glances-client/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jamaicanyutie/glances-client?color=2DD4BF&label=release)](https://github.com/jamaicanyutie/glances-client/releases)
 [![Downloads](https://img.shields.io/github/downloads/jamaicanyutie/glances-client/total?color=2DD4BF)](https://github.com/jamaicanyutie/glances-client/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A minimal, pure-black (AMOLED) monitoring client for the [Glances](https://github.com/nicolargo/glances) system monitoring tool.
+Native Android monitoring clients for the [Glances](https://github.com/nicolargo/glances) system monitoring tool. Both apps talk directly to the Glances REST API (`/api/4`) and render the live dashboard on a battery-friendly pure-black (AMOLED) screen.
 
-**v1.0.0** — a deliberately lean, read-only mobile client.
+This repository contains two Flutter apps:
 
-## Screenshots
+| App | Path | Description |
+|-----|------|-------------|
+| **Glances Client** (minimal) | [`minimal/`](minimal/) | A deliberately lean, read-only mobile client. |
+| **Glances Client Advanced** | [`advanced/`](advanced/) | A feature-rich client with drill-down detail screens, history charts, discovery and more. |
+
+## Screenshots (minimal)
 
 | | | |
 |---|---|---|
-| ![Home](screenshots/processed/01-home.png) | ![CPU](screenshots/processed/02-cpu.png) | ![Memory](screenshots/processed/03-memory.png) |
-| ![Disks](screenshots/processed/04-disks-top.png) | ![Network](screenshots/processed/05-network.png) | ![Services](screenshots/processed/06-services.png) |
+| ![Home](minimal/screenshots/processed/01-home.png) | ![CPU](minimal/screenshots/processed/02-cpu.png) | ![Memory](minimal/screenshots/processed/03-memory.png) |
+| ![Disks](minimal/screenshots/processed/04-disks-top.png) | ![Network](minimal/screenshots/processed/05-network.png) | ![Services](minimal/screenshots/processed/06-services.png) |
 
 | |
 |---|
-| ![First-run connect dialog](screenshots/processed/07-connect-dialog.png) |
-
-## Why this exists
-
-Glances has a web UI and can be accessed from a browser, but until now there was no dedicated mobile client that gives you the Glances dashboard in your pocket. This project fills that gap: a native Android app that talks directly to the Glances REST API (`/api/4`) and renders the live dashboard on a battery-friendly pure-black screen.
-
-## Features
-
-- **Live dashboard** — CPU, memory, load average, filesystems and Docker container status at a glance, auto-refreshing every 2 seconds
-- **Per-screen views** — dedicated screens for CPU, Memory, Disks, Network and Services (containers), reachable from the bottom navigation bar
-- **AMOLED pure-black theme** — a display-only design tuned for OLED panels, with minimal battery drain
-- **Server configuration** — connect to any Glances host (`http://`, `https://`, or bare `host:port`), persisted between sessions, with a reset button to switch servers at any time
-- **Pull-to-refresh** — force a fresh snapshot whenever you want it
-- **Error handling** — clear, retryable error states when the server is unreachable
-
-> **Note:** v1 is intentionally display-only. The dashboard cards are not tappable and there is no per-container or per-process detail view — this keeps v1 a focused, minimal monitoring client. Expanded features are planned for the next release (see below).
+| ![First-run connect dialog](minimal/screenshots/processed/07-connect-dialog.png) |
 
 ## Requirements
 
@@ -50,20 +40,19 @@ On first launch, enter your Glances server address and tap **Connect**.
 
 ## Building from source
 
+Each app is a self-contained Flutter project. From its directory:
+
 ```bash
+cd minimal    # or: cd advanced
 flutter pub get
 flutter build apk --release
 ```
 
 The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
 
-## Upcoming in the next update
-
-- Per-container and per-process drill-down detail screens
-- Tappable dashboard cards that navigate to the matching screen
-- Live graphs / history charts
-- Process list with sorting and filtering
-
 ## License
 
 See [LICENSE](LICENSE).
+
+Third-party notices (including the LGPL-licensed Glances logo used by the
+advanced app icon): [`advanced/THIRD_PARTY_NOTICES.txt`](advanced/THIRD_PARTY_NOTICES.txt).
