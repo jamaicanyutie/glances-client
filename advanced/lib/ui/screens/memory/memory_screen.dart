@@ -20,7 +20,11 @@ import '../../utils/formatters.dart';
 /// for swap details. Renders three cards: Usage (per-app breakdown on tap),
 /// Swap (details on tap), and Memory History.
 class MemoryScreen extends ConsumerWidget {
-  const MemoryScreen({super.key});
+  const MemoryScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Memory hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,10 +32,12 @@ class MemoryScreen extends ConsumerWidget {
     final AsyncValue<MemSwapInfo> swap = ref.watch(memSwapProvider);
 
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Memory'),
-          actions: const <Widget>[SettingsButton()],
-        ),
+        appBar: showAppBar
+            ? AppBar(
+                title: const Text('Memory'),
+                actions: const <Widget>[SettingsButton()],
+              )
+            : null,
       body: allStats.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

@@ -6,62 +6,55 @@ import '../../../data/models/glances_all.dart';
 import '../../../data/providers.dart';
 import '../../components/error_view.dart';
 import '../../components/loading_view.dart';
-import '../../components/server_reset_button.dart';
 import '../../theme/colors.dart';
 import '../../theme/theme.dart';
 import '../../utils/formatters.dart';
 
-/// Live Services screen: container health summary plus per-container stats.
+/// Live Services (containers) body.
 ///
 /// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders a
 /// summary card ("X running / Y total") followed by one card per container
-/// with its image, status dot and CPU/memory usage. The plugin is only
-/// present when a container engine is available on the host. Pull-to-refresh
-/// re-fetches the snapshot.
+/// with its image, status dot and CPU/memory usage. This is the Containers
+/// sub-tab of the Services hub. The plugin is only present when a container
+/// engine is available on the host. Pull-to-refresh re-fetches the snapshot.
 class DockerScreen extends ConsumerWidget {
   const DockerScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Services'),
-        actions: const <Widget>[ServerResetButton()],
+    return allStats.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const LoadingView(),
+      error: (Object error, StackTrace stackTrace) => ErrorView(
+        message: '$error',
+        onRetry: () => ref.invalidate(allStatsProvider),
       ),
-      body: allStats.when(
-        skipLoadingOnReload: true,
-        skipLoadingOnRefresh: true,
-        loading: () => const LoadingView(),
-        error: (Object error, StackTrace stackTrace) => ErrorView(
-          message: '$error',
-          onRetry: () => ref.invalidate(allStatsProvider),
-        ),
-        data: (GlancesAll data) {
-          final List<DockerContainerInfo>? containers = data.docker;
-          return RefreshIndicator(
-            onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: <Widget>[
-                _SummaryCard(docker: containers),
-                if (containers != null && containers.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  for (final DockerContainerInfo container in containers) ...[
-                    _ContainerCard(container: container),
-                    if (container != containers.last)
-                      const SizedBox(height: AppSpacing.sm),
-                  ],
-                ] else if (containers != null) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  const _MessageCard(message: 'No containers reported'),
+      data: (GlancesAll data) {
+        final List<DockerContainerInfo>? containers = data.docker;
+        return RefreshIndicator(
+          onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: <Widget>[
+              _SummaryCard(docker: containers),
+              if (containers != null && containers.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                for (final DockerContainerInfo container in containers) ...[
+                  _ContainerCard(container: container),
+                  if (container != containers.last)
+                    const SizedBox(height: AppSpacing.sm),
                 ],
+              ] else if (containers != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                const _MessageCard(message: 'No containers reported'),
               ],
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,6 +29,9 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  /// Accumulated horizontal drag distance while swiping between tabs.
+  double _swipeDelta = 0;
+
   static const List<NavigationDestination> _destinations = [
     NavigationDestination(
       icon: Icon(Icons.dashboard_outlined),
@@ -61,34 +65,75 @@ class _MainShellState extends State<MainShell> {
     ),
   ];
 
+  /// Switches to the shell branch at [index], first dropping any open modal
+  /// sheets on the branch being left (see [MainShell.branchDismissers]).
+  ///
+  /// Used by both the bottom [NavigationBar] and the horizontal swipe
+  /// gesture, so tab changes behave identically either way.
+  void _selectTab(int index) {
+    if (index < 0 || index >= _destinations.length ||
+        index == widget.navigationShell.currentIndex) {
+      return;
+    }
+    final int leavingIndex = widget.navigationShell.currentIndex;
+    // Drop open modal sheets on the branch we are leaving *without* running
+    // their exit animation. go_router's indexed-stack shell freezes an
+    // inactive branch's tickers, so an animated pop would linger as a frozen
+    // overlay that flashes back for a few milliseconds when the tab is
+    // revisited. Removing the route directly disposes the overlay
+    // immediately instead.
+    widget.branchDismissers[leavingIndex].dismissAll();
+    // Belt-and-braces: pop anything else pushed on the branch navigator.
+    // No-op once only the first route remains (the case after
+    // [SheetDismissingNavigatorObserver.dismissAll]).
+    widget.navigationShell.route.branches[leavingIndex].navigatorKey
+        .currentState
+        ?.popUntil((Route<dynamic> route) => route.isFirst);
+    widget.navigationShell.goBranch(
+      index,
+      // Navigate to the branch's initial route so the destination shows its
+      // default (deep-linked) page.
+      initialLocation: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: widget.navigationShell,
+      // Swiping left/right on the content area switches to the next/previous
+      // bottom-navigation tab, mirroring the tap-to-switch behavior in
+      // [_selectTab].
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (DragStartDetails details) {
+          _swipeDelta = 0;
+        },
+        onHorizontalDragUpdate: (DragUpdateDetails details) {
+          _swipeDelta += details.delta.dx;
+        },
+        onHorizontalDragEnd: (DragEndDetails details) {
+          final double velocity = details.primaryVelocity ?? 0;
+          final double width = MediaQuery.sizeOf(context).width;
+          final bool flingLeft = velocity < -kMinFlingVelocity;
+          final bool flingRight = velocity > kMinFlingVelocity;
+          // A slow drag still counts when it covers a quarter of the screen.
+          final bool dragLeft =
+              _swipeDelta < -width / 4 && velocity.abs() < kMinFlingVelocity;
+          final bool dragRight =
+              _swipeDelta > width / 4 && velocity.abs() < kMinFlingVelocity;
+          final int current = widget.navigationShell.currentIndex;
+          if (flingLeft || dragLeft) {
+            _selectTab(current + 1);
+          } else if (flingRight || dragRight) {
+            _selectTab(current - 1);
+          }
+          _swipeDelta = 0;
+        },
+        child: widget.navigationShell,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
-        onDestinationSelected: (int index) {
-          final int leavingIndex = widget.navigationShell.currentIndex;
-          // Drop open modal sheets on the branch we are leaving *without*
-          // running their exit animation. go_router's indexed-stack shell
-          // freezes an inactive branch's tickers, so an animated pop would
-          // linger as a frozen overlay that flashes back for a few
-          // milliseconds when the tab is revisited. Removing the route
-          // directly disposes the overlay immediately instead.
-          widget.branchDismissers[leavingIndex].dismissAll();
-          // Belt-and-braces: pop anything else pushed on the branch
-          // navigator. No-op once only the first route remains (the case
-          // after [SheetDismissingNavigatorObserver.dismissAll]).
-          widget.navigationShell.route.branches[leavingIndex].navigatorKey
-              .currentState
-              ?.popUntil((Route<dynamic> route) => route.isFirst);
-          widget.navigationShell.goBranch(
-            index,
-            // Navigate to the branch's initial route so the destination
-            // shows its default (deep-linked) page.
-            initialLocation: true,
-          );
-        },
+        onDestinationSelected: _selectTab,
         destinations: _destinations,
       ),
     );

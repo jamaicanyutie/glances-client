@@ -2,10 +2,10 @@ import 'package:go_router/go_router.dart';
 
 import '../screens/cpu/cpu_screen.dart';
 import '../screens/disks/disks_screen.dart';
-import '../screens/docker/docker_screen.dart';
+import '../screens/docker/services_hub.dart';
 import '../screens/home/home_screen.dart';
-import '../screens/memory/memory_screen.dart';
-import '../screens/network/network_screen.dart';
+import '../screens/memory/memory_hub.dart';
+import '../screens/network/network_hub.dart';
 import 'server_config_gate.dart';
 
 /// Central route table.
@@ -15,7 +15,9 @@ import 'server_config_gate.dart';
 /// keeps its own navigation stack and state.
 ///
 /// v1 has no drill-down routes: the dashboard is display-only and every
-/// screen is reachable from the bottom navigation bar.
+/// screen is reachable from the bottom navigation bar. CPU and Disks are
+/// single-pane screens; Memory, Network and Services render capability-gated
+/// hubs.
 abstract final class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/',
@@ -44,7 +46,7 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/memory',
-                builder: (context, state) => const MemoryScreen(),
+                builder: (context, state) => const MemoryHub(),
               ),
             ],
           ),
@@ -60,7 +62,7 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/network',
-                builder: (context, state) => const NetworkScreen(),
+                builder: (context, state) => const NetworkHub(),
               ),
             ],
           ),
@@ -68,7 +70,7 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/docker',
-                builder: (context, state) => const DockerScreen(),
+                builder: (context, state) => const ServicesHub(),
               ),
             ],
           ),

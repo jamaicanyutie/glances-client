@@ -18,6 +18,7 @@ import '../../data/models/process_info.dart';
 import '../../data/providers.dart';
 import '../theme/colors.dart';
 import '../theme/theme.dart';
+import '../utils/alert_color_resolver.dart';
 import '../utils/formatters.dart';
 import 'history_chart.dart';
 
@@ -269,10 +270,15 @@ class CpuHistorySheetBody extends ConsumerWidget {
 
 /// One progress row inside [CpuBreakdownSheetBody].
 class _BreakdownSheetRow extends StatelessWidget {
-  const _BreakdownSheetRow({required this.label, required this.value});
+  const _BreakdownSheetRow({
+    required this.label,
+    required this.value,
+    required this.colors,
+  });
 
   final String label;
   final double value;
+  final AlertColorResolver colors;
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +311,7 @@ class _BreakdownSheetRow extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         LinearProgressIndicator(
           value: _barFraction(value),
-          color: _barColor(value),
+          color: colors.colorFor('cpu', value),
           backgroundColor: AppColors.surfaceAlt,
           minHeight: 4,
           borderRadius: BorderRadius.circular(2),
@@ -328,6 +334,7 @@ class CpuBreakdownSheetBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -357,21 +364,46 @@ class CpuBreakdownSheetBody extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 if (cpu.user != null)
-                  _BreakdownSheetRow(label: 'User', value: cpu.user!),
+                  _BreakdownSheetRow(
+                    label: 'User',
+                    value: cpu.user!,
+                    colors: colors,
+                  ),
                 if (cpu.system != null)
-                  _BreakdownSheetRow(label: 'System', value: cpu.system!),
+                  _BreakdownSheetRow(
+                    label: 'System',
+                    value: cpu.system!,
+                    colors: colors,
+                  ),
                 if (cpu.nice != null)
-                  _BreakdownSheetRow(label: 'Nice', value: cpu.nice!),
+                  _BreakdownSheetRow(
+                    label: 'Nice',
+                    value: cpu.nice!,
+                    colors: colors,
+                  ),
                 if (cpu.iowait != null)
-                  _BreakdownSheetRow(label: 'I/O wait', value: cpu.iowait!),
+                  _BreakdownSheetRow(
+                    label: 'I/O wait',
+                    value: cpu.iowait!,
+                    colors: colors,
+                  ),
                 if (cpu.steal != null)
-                  _BreakdownSheetRow(label: 'Steal', value: cpu.steal!),
+                  _BreakdownSheetRow(
+                    label: 'Steal',
+                    value: cpu.steal!,
+                    colors: colors,
+                  ),
                 if (cpu.irq != null)
-                  _BreakdownSheetRow(label: 'IRQ', value: cpu.irq!),
+                  _BreakdownSheetRow(
+                    label: 'IRQ',
+                    value: cpu.irq!,
+                    colors: colors,
+                  ),
                 if (cpu.softInterrupts != null)
                   _BreakdownSheetRow(
                     label: 'SoftIRQ',
                     value: cpu.softInterrupts!,
+                    colors: colors,
                   ),
                 const SizedBox(height: AppSpacing.xs),
                 SheetValueRow(label: 'Idle', value: formatPercent(cpu.idle)),
@@ -448,6 +480,7 @@ class _PerContainerCpuBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return allStats.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
@@ -464,7 +497,7 @@ class _PerContainerCpuBody extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             for (int i = 0; i < containers.length; i++) ...[
-              _ContainerCpuRow(container: containers[i]),
+              _ContainerCpuRow(container: containers[i], colors: colors),
               if (i != containers.length - 1)
                 const SizedBox(height: AppSpacing.sm),
             ],
@@ -477,9 +510,10 @@ class _PerContainerCpuBody extends ConsumerWidget {
 
 /// Per-container CPU row inside [CpuBreakdownSheetBody].
 class _ContainerCpuRow extends StatelessWidget {
-  const _ContainerCpuRow({required this.container});
+  const _ContainerCpuRow({required this.container, required this.colors});
 
   final DockerContainerInfo container;
+  final AlertColorResolver colors;
 
   @override
   Widget build(BuildContext context) {
@@ -523,7 +557,7 @@ class _ContainerCpuRow extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             LinearProgressIndicator(
               value: _barFraction(percent),
-              color: _barColor(percent),
+              color: colors.colorFor('docker', percent, item: 'total'),
               backgroundColor: AppColors.surfaceAlt,
               minHeight: 4,
               borderRadius: BorderRadius.circular(2),
@@ -535,16 +569,21 @@ class _ContainerCpuRow extends StatelessWidget {
   }
 }
 class _PerCoreRow extends StatelessWidget {
-  const _PerCoreRow({required this.core, required this.isLast});
+  const _PerCoreRow({
+    required this.core,
+    required this.isLast,
+    required this.colors,
+  });
 
   final PerCpuInfo core;
   final bool isLast;
+  final AlertColorResolver colors;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final double percent = core.total ?? 0;
-    final Color barColor = _barColor(percent);
+    final Color barColor = colors.colorFor('percpu', percent, item: 'total');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -645,6 +684,7 @@ class PerCoreSheetBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<PerCpuInfo>> cores = ref.watch(perCpuProvider);
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return cores.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
@@ -660,7 +700,11 @@ class PerCoreSheetBody extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             for (int i = 0; i < items.length; i++)
-              _PerCoreRow(core: items[i], isLast: i == items.length - 1),
+              _PerCoreRow(
+                core: items[i],
+                isLast: i == items.length - 1,
+                colors: colors,
+              ),
           ],
         );
       },
@@ -669,9 +713,10 @@ class PerCoreSheetBody extends ConsumerWidget {
 }
 
 class _AppMemRow extends StatelessWidget {
-  const _AppMemRow({required this.process});
+  const _AppMemRow({required this.process, required this.colors});
 
   final ProcessInfo process;
+  final AlertColorResolver colors;
 
   @override
   Widget build(BuildContext context) {
@@ -713,7 +758,7 @@ class _AppMemRow extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             LinearProgressIndicator(
               value: _barFraction(percent),
-              color: _barColor(percent),
+              color: colors.colorFor('mem', percent, item: 'percent'),
               backgroundColor: AppColors.surfaceAlt,
               minHeight: 4,
               borderRadius: BorderRadius.circular(2),
@@ -735,6 +780,7 @@ class MemBreakdownSheetBody extends ConsumerWidget {
     final AsyncValue<List<ProcessInfo>> processes =
         ref.watch(topProcessesProvider);
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -818,7 +864,7 @@ class MemBreakdownSheetBody extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 for (int i = 0; i < visible.length; i++) ...[
-                  _AppMemRow(process: visible[i]),
+                  _AppMemRow(process: visible[i], colors: colors),
                   if (i != visible.length - 1) const SizedBox(height: AppSpacing.sm),
                 ],
               ],
@@ -1567,15 +1613,4 @@ double _barFraction(double? value) {
     return 0;
   }
   return (value.clamp(0, 100) / 100).toDouble();
-}
-
-/// Maps a usage percentage (0-100) onto the status color scale.
-Color _barColor(double percent) {
-  if (percent >= 85) {
-    return AppColors.danger;
-  }
-  if (percent >= 60) {
-    return AppColors.warning;
-  }
-  return AppColors.accent;
 }

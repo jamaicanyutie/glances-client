@@ -4,10 +4,13 @@ import 'package:dio/dio.dart';
 
 import '../exceptions.dart';
 import '../models/alert_info.dart';
+import '../models/alert_thresholds.dart';
 import '../models/cpu_info.dart';
 import '../models/disk_io_info.dart';
 import '../models/docker_container_info.dart';
+import '../models/folders_info.dart';
 import '../models/fs_info.dart';
+import '../models/gpu_info.dart';
 import '../models/glances_all.dart';
 import '../models/history_point.dart';
 import '../models/connection_stats_info.dart';
@@ -20,6 +23,7 @@ import '../models/per_cpu_info.dart';
 import '../models/port_info.dart';
 import '../models/process_detail_info.dart';
 import '../models/process_info.dart';
+import '../models/program_info.dart';
 import '../models/sensor_info.dart';
 import '../models/system_info.dart';
 import '../models/vm_info.dart';
@@ -216,6 +220,23 @@ class GlancesRepository {
     }
   }
 
+  /// Fetches the extended process list (`GET /api/4/processes/extended`).
+  ///
+  /// Extended stats are only collected when the server is started with
+  /// `--enable-process-extended`; otherwise the endpoint responds with an
+  /// empty object. That is reported as an empty list so callers can render a
+  /// "not enabled" empty state instead of failing.
+  Future<List<ProcessDetailInfo>> getExtendedProcesses() async {
+    final path = '$_apiPrefix/processes/extended';
+    final dynamic data = await _getJson(path);
+    if (data is! List) {
+      return const <ProcessDetailInfo>[];
+    }
+    return data
+        .map((e) => ProcessDetailInfo.fromJson(_requireMap(e, path)))
+        .toList();
+  }
+
   /// Fetches the aggregate TCP connection counts (`GET /api/4/connections`).
   ///
   /// The REST API only exposes aggregate counts per connection state plus the
@@ -262,6 +283,39 @@ class GlancesRepository {
     final path = '$_apiPrefix/vms';
     return _requireList(await _getJson(path), path)
         .map((e) => VmInfo.fromJson(_requireMap(e, path)))
+        .toList();
+  }
+
+  /// Fetches the monitored folders (`GET /api/4/folders`).
+  ///
+  /// The folders plugin reports disk usage of a configured list of folders;
+  /// empty when the server has no folders configured.
+  Future<List<FolderInfo>> getFolders() async {
+    final path = '$_apiPrefix/folders';
+    return _requireList(await _getJson(path), path)
+        .map((e) => FolderInfo.fromJson(_requireMap(e, path)))
+        .toList();
+  }
+
+  /// Fetches the GPUs (`GET /api/4/gpu`).
+  ///
+  /// Only present on hosts with a GPU (ARM boards, Jetson, ...); empty on
+  /// servers without one.
+  Future<List<GpuInfo>> getGpu() async {
+    final path = '$_apiPrefix/gpu';
+    return _requireList(await _getJson(path), path)
+        .map((e) => GpuInfo.fromJson(_requireMap(e, path)))
+        .toList();
+  }
+
+  /// Fetches the aggregated program list (`GET /api/4/programlist`).
+  ///
+  /// Unlike [getProcesses] (one entry per process), `programlist` groups the
+  /// processes of the same program into one entry with an `nprocs` count.
+  Future<List<ProgramInfo>> getPrograms() async {
+    final path = '$_apiPrefix/programlist';
+    return _requireList(await _getJson(path), path)
+        .map((e) => ProgramInfo.fromJson(_requireMap(e, path)))
         .toList();
   }
 
@@ -363,6 +417,140 @@ class GlancesRepository {
     return _requireList(await _getJson(path), path)
         .map((e) => AlertInfo.fromJson(_requireMap(e, path)))
         .toList();
+  }
+
+  /// Fetches the server-configured alert limits
+  /// (`GET /api/4/all/limits`).
+  ///
+  /// The response is `{ "cpu": { "total": { "warning": 70.0, "critical":
+  /// 90.0 } }, ... }`. Keys vary by plugin set and Glances version, so the
+  /// result is kept as a raw plugin/item map for the color resolver to
+  /// consult.
+  Future<AlertThresholds> getLimits() async {
+    final path = '$_apiPrefix/all/limits';
+    return AlertThresholds.fromLimitsJson(
+      _requireMap(await _getJson(path), path),
+    );
+  }
+
+  /// Fetches the server-computed alert views/decoration
+  /// (`GET /api/4/all/views`).
+  ///
+  /// Same shape as `/all/limits` but each entry carries the server's
+  /// `decoration` label (`OK`, `WARNING`, `CRITICAL`, ...). Used to drive
+  /// status chips and card accents from server truth.
+  Future<AlertThresholds> getViews() async {
+    final path = '$_apiPrefix/all/views';
+    return AlertThresholds.fromViewsJson(
+      _requireMap(await _getJson(path), path),
+    );
+  }
+
+  /// Fetches the server status (`GET /api/4/status`).
+  ///
+  /// One of the two endpoints that is always served without authentication,
+  /// so it is used for capability detection and the server version badge.
+  Future<Map<String, dynamic>> getStatus() async {
+    final path = '$_apiPrefix/status';
+    return _requireMap(await _getJson(path), path);
+  }
+
+  /// Fetches the list of enabled plugins (`GET /api/4/pluginslist`).
+  ///
+  /// The server returns a plain list of plugin names (`["cpu", "mem", ...]`),
+  /// where a plugin appears only when it is enabled on the host. This drives
+  /// capability detection: cards and sections for plugins the server does not
+  /// report are hidden.
+  Future<List<String>> getPluginsList() async {
+    final path = '$_apiPrefix/pluginslist';
+    return _requireList(await _getJson(path), path)
+        .whereType<String>()
+        .toList();
+  }
+
+  /// Fetches the quick-look summary (`GET /api/4/quicklook`).
+  ///
+  /// Returns `{ "cpu": ..., "mem": ..., "load": ... }` as percentages, used
+  /// for the at-a-glance strip on the home screen.
+  Future<Map<String, dynamic>> getQuicklook() async {
+    final path = '$_apiPrefix/quicklook';
+    return _requireMap(await _getJson(path), path);
+  }
+
+  /// Fetches the Glances version string (`GET /api/4/version`).
+  ///
+  /// The server returns a plain JSON string (e.g. `"4.4.0"`).
+  Future<String> getVersion() async {
+    final path = '$_apiPrefix/version';
+    final Object? data = await _getJson(path);
+    if (data is String) {
+      return data;
+    }
+    throw ApiException(
+      'Unexpected response from $path: expected a JSON string, '
+      'got ${data == null ? 'null' : data.runtimeType}',
+    );
+  }
+
+  /// Reads the unit the server exposes for a plugin item
+  /// (`GET /api/4/{plugin}/{item}/unit`).
+  ///
+  /// Returns the server's raw unit label (e.g. `percent`, `bytes`) or null
+  /// when the item has no unit registered. The unit endpoint 404s for many
+  /// items (older Glances builds, counters without a unit) — absence of
+  /// metadata is a normal outcome, so this returns null instead of throwing;
+  /// callers fall back to their hardcoded unit in that case.
+  Future<String?> getItemUnit(String plugin, String item) async {
+    final path = '$_apiPrefix/$plugin/$item/unit';
+    try {
+      final Object? data = await _getJson(path);
+      return data is String ? data : null;
+    } on ApiException {
+      return null;
+    }
+  }
+
+  /// Reads the human-readable description the server exposes for a plugin
+  /// item (`GET /api/4/{plugin}/{item}/description`).
+  ///
+  /// Returns null when the item has no description registered. Like
+  /// [getItemUnit], a missing description is treated as absence rather than
+  /// an error.
+  Future<String?> getItemDescription(String plugin, String item) async {
+    final path = '$_apiPrefix/$plugin/$item/description';
+    try {
+      final Object? data = await _getJson(path);
+      return data is String ? data : null;
+    } on ApiException {
+      return null;
+    }
+  }
+
+  /// Clears the recorded alerts (`POST /api/4/events/clear/warning` or
+  /// `/api/4/events/clear/all`).
+  ///
+  /// When [all] is true every alert is removed; otherwise only WARNING-level
+  /// events are removed and CRITICAL ones are kept. The server responds with
+  /// an empty object on success. Fails fast with an [ApiException] on servers
+  /// that do not expose the events-clearing endpoint or do not allow writes
+  /// (401/403); the caller decides whether to surface that.
+  Future<void> clearAlerts({required bool all}) async {
+    final String path =
+        '$_apiPrefix/events/clear/${all ? 'all' : 'warning'}';
+    try {
+      await _dio.post<void>(
+        path,
+        options: Options(
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+      );
+    } on DioException catch (e) {
+      throw ApiException(
+        'Request to $path failed: ${e.message ?? e.type}',
+        statusCode: e.response?.statusCode,
+      );
+    }
   }
 
   /// Performs a GET and returns the decoded JSON body.

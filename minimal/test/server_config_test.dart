@@ -63,4 +63,53 @@ void main() {
       expect(ServerConfig.validate('ftp://glances.example.com'), isNotNull);
     });
   });
+
+  group('ServerConfig.hasAuth', () {
+    test('is false without credentials', () {
+      expect(const ServerConfig(baseUrl: 'http://glances.example.com').hasAuth,
+          isFalse);
+    });
+
+    test('is true when only a username is set', () {
+      expect(
+        const ServerConfig(
+          baseUrl: 'http://glances.example.com',
+          authUsername: 'admin',
+        ).hasAuth,
+        isTrue,
+      );
+    });
+
+    test('is true when only a password is set', () {
+      expect(
+        const ServerConfig(
+          baseUrl: 'http://glances.example.com',
+          authPassword: 'secret',
+        ).hasAuth,
+        isTrue,
+      );
+    });
+
+    test('is true when both credentials are set', () {
+      expect(
+        const ServerConfig(
+          baseUrl: 'http://glances.example.com',
+          authUsername: 'admin',
+          authPassword: 'secret',
+        ).hasAuth,
+        isTrue,
+      );
+    });
+
+    test('is false for empty credentials', () {
+      expect(
+        const ServerConfig(
+          baseUrl: 'http://glances.example.com',
+          authUsername: '',
+          authPassword: '',
+        ).hasAuth,
+        isFalse,
+      );
+    });
+  });
 }

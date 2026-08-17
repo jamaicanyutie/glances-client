@@ -12,7 +12,7 @@ class ServerResetButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final String? current = ref.watch(serverConfigProvider).value?.baseUrl;
+    final ServerConfig? current = ref.watch(serverConfigProvider).value;
     return IconButton(
       tooltip: 'Server',
       icon: const Icon(Icons.settings, size: 18),
@@ -20,8 +20,11 @@ class ServerResetButton extends ConsumerWidget {
       onPressed: () {
         showDialog<void>(
           context: context,
-          builder: (BuildContext context) =>
-              ServerConnectDialog(initialUrl: current),
+          builder: (BuildContext context) => ServerConnectDialog(
+            initialUrl: current?.baseUrl,
+            initialUsername: current?.authUsername,
+            initialPassword: current?.authPassword,
+          ),
         );
       },
     );

@@ -2,22 +2,18 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../screens/alerts/alerts_screen.dart';
-import '../screens/cpu/cpu_screen.dart';
-import '../screens/disks/disks_screen.dart';
+import '../screens/cpu/cpu_hub.dart';
+import '../screens/disks/disks_hub.dart';
 import '../screens/docker/container_detail_screen.dart';
-import '../screens/docker/docker_screen.dart';
+import '../screens/docker/services_hub.dart';
 import '../screens/home/home_screen.dart';
-import '../screens/ip/ip_screen.dart';
-import '../screens/memory/memory_screen.dart';
-import '../screens/network/network_screen.dart';
-import '../screens/ports/ports_screen.dart';
+import '../screens/memory/memory_hub.dart';
+import '../screens/network/network_hub.dart';
 import '../screens/processes/process_detail_screen.dart';
 import '../screens/processes/processes_screen.dart';
 import '../screens/sensors/sensors_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/system/system_screen.dart';
-import '../screens/vms/vms_screen.dart';
-import '../screens/wifi/wifi_screen.dart';
 import 'main_shell.dart';
 import 'sheet_dismissing_observer.dart';
 
@@ -26,6 +22,10 @@ import 'sheet_dismissing_observer.dart';
 /// Six bottom-navigation branches (Home, CPU, Memory, Disks, Network,
 /// Services) live in a [StatefulShellRoute.indexedStack] so each branch
 /// keeps its own navigation stack and state.
+///
+/// Each domain branch is a hub ([HubScaffold] with sub-tabs). Nested routes
+/// under a branch re-render the hub with that sub-tab selected, so deep links
+/// like `/cpu/gpu` work and get a back arrow to the hub root.
 ///
 /// `/processes`, `/containers/:id`, `/settings`, `/sensors`, `/system` and
 /// `/alerts` are top-level routes: they are pushed on top of the shell
@@ -66,7 +66,13 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/cpu',
-                builder: (context, state) => const CpuScreen(),
+                builder: (context, state) => const CpuHub(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'gpu',
+                    builder: (context, state) => const CpuHub(initialTabId: 'gpu'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -75,7 +81,7 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/memory',
-                builder: (context, state) => const MemoryScreen(),
+                builder: (context, state) => const MemoryHub(),
               ),
             ],
           ),
@@ -84,7 +90,14 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/disks',
-                builder: (context, state) => const DisksScreen(),
+                builder: (context, state) => const DisksHub(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'folders',
+                    builder: (context, state) =>
+                        const DisksHub(initialTabId: 'folders'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -93,7 +106,23 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/network',
-                builder: (context, state) => const NetworkScreen(),
+                builder: (context, state) => const NetworkHub(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'ip',
+                    builder: (context, state) => const NetworkHub(initialTabId: 'ip'),
+                  ),
+                  GoRoute(
+                    path: 'wifi',
+                    builder: (context, state) =>
+                        const NetworkHub(initialTabId: 'wifi'),
+                  ),
+                  GoRoute(
+                    path: 'ports',
+                    builder: (context, state) =>
+                        const NetworkHub(initialTabId: 'ports'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -102,7 +131,23 @@ abstract final class AppRouter {
             routes: <RouteBase>[
               GoRoute(
                 path: '/docker',
-                builder: (context, state) => const DockerScreen(),
+                builder: (context, state) => const ServicesHub(),
+                routes: <RouteBase>[
+                  GoRoute(
+                    path: 'vms',
+                    builder: (context, state) =>
+                        const ServicesHub(initialTabId: 'vms'),
+                  ),
+                  GoRoute(
+                    path: 'programs',
+                    builder: (context, state) =>
+                        const ServicesHub(initialTabId: 'programs'),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: '/services',
+                builder: (context, state) => const ServicesHub(),
               ),
             ],
           ),
@@ -138,22 +183,6 @@ abstract final class AppRouter {
       GoRoute(
         path: '/alerts',
         builder: (context, state) => const AlertsScreen(),
-      ),
-      GoRoute(
-        path: '/ip',
-        builder: (context, state) => const IpScreen(),
-      ),
-      GoRoute(
-        path: '/wifi',
-        builder: (context, state) => const WifiScreen(),
-      ),
-      GoRoute(
-        path: '/ports',
-        builder: (context, state) => const PortsScreen(),
-      ),
-      GoRoute(
-        path: '/vms',
-        builder: (context, state) => const VmsScreen(),
       ),
     ],
   );

@@ -6,16 +6,16 @@ import '../../../data/models/mem_info.dart';
 import '../../../data/providers.dart';
 import '../../components/error_view.dart';
 import '../../components/loading_view.dart';
-import '../../components/server_reset_button.dart';
 import '../../theme/colors.dart';
 import '../../theme/theme.dart';
 import '../../utils/formatters.dart';
 
-/// Live memory usage screen.
+/// Live memory overview body.
 ///
 /// Watches [allStatsProvider] (refreshed every 2 seconds) and renders the
 /// memory plugin summary: a hero card with the usage percentage plus a details
-/// card with the byte-level breakdown. Pull-to-refresh forces a re-fetch.
+/// card with the byte-level breakdown. This is the Overview sub-tab of the
+/// Memory hub. Pull-to-refresh forces a re-fetch.
 class MemoryScreen extends ConsumerWidget {
   const MemoryScreen({super.key});
 
@@ -23,39 +23,33 @@ class MemoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Memory'),
-        actions: const <Widget>[ServerResetButton()],
+    return allStats.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const LoadingView(),
+      error: (Object error, StackTrace stackTrace) => ErrorView(
+        message: '$error',
+        onRetry: () => ref.invalidate(allStatsProvider),
       ),
-      body: allStats.when(
-        skipLoadingOnReload: true,
-        skipLoadingOnRefresh: true,
-        loading: () => const LoadingView(),
-        error: (Object error, StackTrace stackTrace) => ErrorView(
-          message: '$error',
-          onRetry: () => ref.invalidate(allStatsProvider),
-        ),
-        data: (GlancesAll data) {
-          final MemInfo? mem = data.mem;
-          return RefreshIndicator(
-            onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: <Widget>[
-                if (mem == null)
-                  const _MemoryUnavailableCard()
-                else ...[
-                  _MemoryHeroCard(mem: mem),
-                  const SizedBox(height: AppSpacing.md),
-                  _MemoryDetailsCard(mem: mem),
-                ],
+      data: (GlancesAll data) {
+        final MemInfo? mem = data.mem;
+        return RefreshIndicator(
+          onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: <Widget>[
+              if (mem == null)
+                const _MemoryUnavailableCard()
+              else ...[
+                _MemoryHeroCard(mem: mem),
+                const SizedBox(height: AppSpacing.md),
+                _MemoryDetailsCard(mem: mem),
               ],
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

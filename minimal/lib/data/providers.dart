@@ -111,3 +111,30 @@ final cpuHistoryProvider =
     AsyncNotifierProvider<CpuHistoryNotifier, List<HistoryPoint>>(
   CpuHistoryNotifier.new,
 );
+
+/// The set of plugins enabled on the connected server
+/// (`GET /api/4/pluginslist`).
+///
+/// A plugin appears only when it is enabled on the host, so this drives
+/// capability detection: hub sub-tabs and cards for plugins the server does
+/// not report are hidden. A failed lookup resolves to an empty set (see
+/// [hasPluginCapability]), which degrades to showing everything.
+final capabilitiesProvider = FutureProvider<Set<String>>((ref) async {
+  final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+  try {
+    final List<String> plugins = await repo.getPluginsList();
+    return plugins.toSet();
+  } on Object {
+    return const <String>{};
+  }
+});
+
+/// Whether the connected server exposes the plugin named [plugin].
+///
+/// While capabilities are unresolved or empty (first fetch still in flight or
+/// failed), every capability is treated as present so the UI never blocks on
+/// the lookup — it degrades to showing all sub-tabs.
+bool hasPluginCapability(AsyncValue<Set<String>> capabilities, String plugin) {
+  final Set<String>? caps = capabilities.value;
+  return caps == null || caps.isEmpty || caps.contains(plugin);
+}

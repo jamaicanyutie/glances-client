@@ -46,7 +46,18 @@ void main() {
 
     expect(find.byType(ServerConnectDialog), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'glances.example.com');
+    await tester.enterText(
+      find.byKey(const Key('server_address_field')),
+      'glances.example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('server_username_field')),
+      'admin',
+    );
+    await tester.enterText(
+      find.byKey(const Key('server_password_field')),
+      'secret',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
     await tester.pump(); // start async save
     await tester.pump(const Duration(milliseconds: 100)); // persist + close dialog
@@ -56,12 +67,14 @@ void main() {
     expect(find.byType(ServerConnectDialog), findsNothing);
     expect(find.byType(NavigationBar), findsOneWidget);
 
-    // The normalized URL was persisted.
+    // The normalized URL and the credentials were persisted.
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(
       prefs.getString('glances_server_base_url'),
       'http://glances.example.com',
     );
+    expect(prefs.getString('glances_server_username'), 'admin');
+    expect(prefs.getString('glances_server_password'), 'secret');
   });
 
   testWidgets('connect dialog shows an error for invalid input',
@@ -71,7 +84,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.enterText(find.byType(TextField), '   ');
+    await tester.enterText(
+      find.byKey(const Key('server_address_field')),
+      '   ',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));

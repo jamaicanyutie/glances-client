@@ -17,6 +17,7 @@ import '../../components/responsive_card_grid.dart';
 import '../../components/settings_button.dart';
 import '../../theme/colors.dart';
 import '../../theme/theme.dart';
+import '../../utils/alert_color_resolver.dart';
 import '../../utils/formatters.dart';
 
 /// Landing screen: live overview of the host.
@@ -35,6 +36,8 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
     final AsyncValue<List<ProcessInfo>> topProcesses =
         ref.watch(topProcessesProvider);
+    final AsyncValue<Set<String>> capabilities =
+        ref.watch(capabilitiesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -64,6 +67,8 @@ class HomeScreen extends ConsumerWidget {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: <Widget>[
+                      const _ServerVersionBadge(),
+                      const SizedBox(height: AppSpacing.sm),
                       LayoutBuilder(
                         builder:
                             (BuildContext context, BoxConstraints constraints) {
@@ -86,16 +91,22 @@ class HomeScreen extends ConsumerWidget {
                                 const SizedBox(height: AppSpacing.md),
                                 _LoadCard(load: data.load),
                                 const SizedBox(height: AppSpacing.md),
-                                _SensorsCard(),
+                                _QuicklookCard(),
                                 const SizedBox(height: AppSpacing.md),
+                                if (hasPluginCapability(capabilities, 'sensors'))
+                                  _SensorsCard(),
+                                if (hasPluginCapability(capabilities, 'sensors'))
+                                  const SizedBox(height: AppSpacing.md),
                                 _SystemCard(),
                                 const SizedBox(height: AppSpacing.md),
                                 _AlertsCard(),
                                 const SizedBox(height: AppSpacing.md),
                                 _FilesystemCard(fs: data.fs),
                                 const SizedBox(height: AppSpacing.md),
-                                _DockerCard(docker: data.docker),
-                                const SizedBox(height: AppSpacing.md),
+                                if (hasPluginCapability(capabilities, 'containers'))
+                                  _DockerCard(docker: data.docker),
+                                if (hasPluginCapability(capabilities, 'containers'))
+                                  const SizedBox(height: AppSpacing.md),
                                 _ProcessCountCard(),
                                 const SizedBox(height: AppSpacing.md),
                                 _TopProcessesCard(topProcesses: topProcesses),
@@ -109,11 +120,14 @@ class HomeScreen extends ConsumerWidget {
                               _CpuCard(cpu: data.cpu),
                               _MemoryCard(mem: data.mem),
                               _LoadCard(load: data.load),
-                              _SensorsCard(),
+                              _QuicklookCard(),
+                              if (hasPluginCapability(capabilities, 'sensors'))
+                                _SensorsCard(),
                               _SystemCard(),
                               _AlertsCard(),
                               _FilesystemCard(fs: data.fs),
-                              _DockerCard(docker: data.docker),
+                              if (hasPluginCapability(capabilities, 'containers'))
+                                _DockerCard(docker: data.docker),
                               _ProcessCountCard(),
                               _TopProcessesCard(topProcesses: topProcesses),
                             ],
@@ -162,6 +176,49 @@ class _NoServerView extends StatelessWidget {
               onPressed: () => context.push('/settings'),
               icon: const Icon(Icons.settings),
               label: const Text('Open settings'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small header chip showing the connected Glances server version
+/// (`GET /api/4/version`). Hidden entirely when the server does not expose a
+/// version — a failed lookup is non-fatal.
+class _ServerVersionBadge extends ConsumerWidget {
+  const _ServerVersionBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final String? version = ref.watch(serverVersionProvider).value;
+    if (version == null || version.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 4,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(Icons.dns, size: 14, color: AppColors.textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              'Glances $version',
+              style: textTheme.labelMedium?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -223,16 +280,17 @@ class _StatCard extends StatelessWidget {
 }
 
 /// Half-width card showing total CPU usage.
-class _CpuCard extends StatelessWidget {
+class _CpuCard extends ConsumerWidget {
   const _CpuCard({required this.cpu});
 
   final CpuInfo? cpu;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final double percent = cpu?.total ?? 0;
     final String cores = cpu?.cpucore?.toString() ?? '—';
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return _StatCard(
       title: 'CPU',
       icon: Icons.memory,
@@ -258,7 +316,7 @@ class _CpuCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           LinearProgressIndicator(
             value: _barFraction(percent),
-            color: _barColor(percent),
+            color: colors.colorFor('cpu', percent, item: 'total'),
             backgroundColor: AppColors.surfaceAlt,
             minHeight: 6,
             borderRadius: BorderRadius.circular(3),
@@ -270,15 +328,16 @@ class _CpuCard extends StatelessWidget {
 }
 
 /// Half-width card showing memory usage.
-class _MemoryCard extends StatelessWidget {
+class _MemoryCard extends ConsumerWidget {
   const _MemoryCard({required this.mem});
 
   final MemInfo? mem;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final double percent = mem?.percent ?? 0;
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return _StatCard(
       title: 'Memory',
       icon: Icons.speed,
@@ -306,7 +365,7 @@ class _MemoryCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           LinearProgressIndicator(
             value: _barFraction(percent),
-            color: _barColor(percent),
+            color: colors.colorFor('mem', percent, item: 'percent'),
             backgroundColor: AppColors.surfaceAlt,
             minHeight: 6,
             borderRadius: BorderRadius.circular(3),
@@ -319,13 +378,14 @@ class _MemoryCard extends StatelessWidget {
 
 /// Full-width card showing the 1/5/15-minute load averages, normalized by the
 /// number of CPU cores.
-class _LoadCard extends StatelessWidget {
+class _LoadCard extends ConsumerWidget {
   const _LoadCard({required this.load});
 
   final LoadInfo? load;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return _StatCard(
       title: 'Load Average',
       icon: Icons.av_timer,
@@ -341,6 +401,7 @@ class _LoadCard extends StatelessWidget {
                   label: '1m',
                   value: load?.min1,
                   cores: load?.cpucore,
+                  colors: colors,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -349,6 +410,7 @@ class _LoadCard extends StatelessWidget {
                   label: '5m',
                   value: load?.min5,
                   cores: load?.cpucore,
+                  colors: colors,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -357,6 +419,7 @@ class _LoadCard extends StatelessWidget {
                   label: '15m',
                   value: load?.min15,
                   cores: load?.cpucore,
+                  colors: colors,
                 ),
               ),
             ],
@@ -373,11 +436,13 @@ class _LoadColumn extends StatelessWidget {
     required this.label,
     required this.value,
     required this.cores,
+    required this.colors,
   });
 
   final String label;
   final double? value;
   final int? cores;
+  final AlertColorResolver colors;
 
   @override
   Widget build(BuildContext context) {
@@ -405,7 +470,123 @@ class _LoadColumn extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         LinearProgressIndicator(
           value: fraction,
-          color: _barColor(fraction * 100),
+          color: colors.colorFor('load', fraction * 100),
+          backgroundColor: AppColors.surfaceAlt,
+          minHeight: 4,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ],
+    );
+  }
+}
+
+/// At-a-glance CPU / memory / load percentages from the `quicklook` plugin
+/// (`GET /api/4/quicklook`), rendered as a compact three-cell strip.
+///
+/// Falls back to the live [allStatsProvider] values when the quicklook
+/// endpoint is unavailable, and hides itself entirely when neither source has
+/// data — so the strip degrades gracefully on older Glances versions.
+class _QuicklookCard extends ConsumerWidget {
+  const _QuicklookCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
+    final AsyncValue<Map<String, dynamic>> quicklook =
+        ref.watch(quicklookProvider);
+
+    final double? cpuPercent;
+    final double? memPercent;
+    final double? loadPercent;
+    if (quicklook.hasValue && quicklook.value!.isNotEmpty) {
+      cpuPercent = (quicklook.value!['cpu'] as num?)?.toDouble();
+      memPercent = (quicklook.value!['mem'] as num?)?.toDouble();
+      loadPercent = (quicklook.value!['load'] as num?)?.toDouble();
+    } else {
+      final GlancesAll? live = ref.watch(allStatsProvider).value;
+      final LoadInfo? load = live?.load;
+      cpuPercent = live?.cpu?.total;
+      memPercent = live?.mem?.percent;
+      loadPercent = load == null || load.cpucore == null
+          ? null
+          : _loadBarFraction(load.min1, load.cpucore) * 100;
+    }
+
+    final List<_QuicklookCell> cells = <_QuicklookCell>[
+      _QuicklookCell(
+        label: 'CPU',
+        percent: cpuPercent,
+        color: colors.colorFor('cpu', cpuPercent ?? 0, item: 'total'),
+      ),
+      _QuicklookCell(
+        label: 'MEM',
+        percent: memPercent,
+        color: colors.colorFor('mem', memPercent ?? 0, item: 'percent'),
+      ),
+      _QuicklookCell(
+        label: 'LOAD',
+        percent: loadPercent,
+        color: colors.colorFor('load', loadPercent ?? 0),
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          for (int i = 0; i < cells.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.lg),
+            Expanded(child: cells[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One labeled cell inside [_QuicklookCard].
+class _QuicklookCell extends StatelessWidget {
+  const _QuicklookCell({
+    required this.label,
+    required this.percent,
+    required this.color,
+  });
+
+  final String label;
+  final double? percent;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          label,
+          style: textTheme.labelMedium?.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          formatPercent(percent),
+          style: textTheme.titleMedium?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        LinearProgressIndicator(
+          value: _barFraction(percent),
+          color: color,
           backgroundColor: AppColors.surfaceAlt,
           minHeight: 4,
           borderRadius: BorderRadius.circular(2),
@@ -416,15 +597,15 @@ class _LoadColumn extends StatelessWidget {
 }
 
 /// Full-width card listing the three most-used filesystems.
-class _FilesystemCard extends StatelessWidget {
-  const _FilesystemCard({required this.fs});
+class _FilesystemCard extends ConsumerWidget {  const _FilesystemCard({required this.fs});
 
   final List<FsInfo>? fs;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final List<FsInfo> mounts = _topMounts(fs);
+    final AlertColorResolver colors = ref.watch(alertColorResolverProvider);
     return _StatCard(
       title: 'Filesystems',
       icon: Icons.storage,
@@ -441,7 +622,7 @@ class _FilesystemCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 for (final FsInfo mount in mounts) ...[
-                  _MountRow(mount: mount),
+                  _MountRow(mount: mount, colors: colors),
                   if (mount != mounts.last) const SizedBox(height: AppSpacing.md),
                 ],
               ],
@@ -475,9 +656,10 @@ class _FilesystemCard extends StatelessWidget {
 
 /// A single filesystem row: mount point, usage percentage and a thin bar.
 class _MountRow extends StatelessWidget {
-  const _MountRow({required this.mount});
+  const _MountRow({required this.mount, required this.colors});
 
   final FsInfo mount;
+  final AlertColorResolver colors;
 
   @override
   Widget build(BuildContext context) {
@@ -512,7 +694,7 @@ class _MountRow extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         LinearProgressIndicator(
           value: _barFraction(percent),
-          color: _barColor(percent),
+          color: colors.colorFor('fs', percent, item: 'percent'),
           backgroundColor: AppColors.surfaceAlt,
           minHeight: 4,
           borderRadius: BorderRadius.circular(2),
@@ -855,15 +1037,4 @@ String _formatLoad(double? load) {
     return '—';
   }
   return load.toStringAsFixed(2);
-}
-
-/// Maps a usage percentage (0-100) onto the status color scale.
-Color _barColor(double percent) {
-  if (percent >= 85) {
-    return AppColors.danger;
-  }
-  if (percent >= 60) {
-    return AppColors.warning;
-  }
-  return AppColors.accent;
 }

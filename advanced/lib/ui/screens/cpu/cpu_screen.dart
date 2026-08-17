@@ -22,7 +22,11 @@ import '../../utils/formatters.dart';
 /// samples rendered as a sparkline (refreshed every 5 seconds). Pull-to-refresh
 /// forces both providers.
 class CpuScreen extends ConsumerWidget {
-  const CpuScreen({super.key});
+  const CpuScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the CPU hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,10 +35,12 @@ class CpuScreen extends ConsumerWidget {
         ref.watch(cpuHistoryProvider);
 
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('CPU'),
-          actions: const <Widget>[SettingsButton()],
-        ),
+        appBar: showAppBar
+            ? AppBar(
+                title: const Text('CPU'),
+                actions: const <Widget>[SettingsButton()],
+              )
+            : null,
       body: allStats.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

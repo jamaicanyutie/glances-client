@@ -19,16 +19,22 @@ import '../../theme/theme.dart';
 /// without a Wi-Fi interface report an empty list, which renders as a
 /// friendly empty state.
 class WifiScreen extends ConsumerWidget {
-  const WifiScreen({super.key});
+  const WifiScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Network hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<WifiInfo>> networks = ref.watch(wifiProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Wi-Fi'),
-        actions: const <Widget>[SettingsButton()],
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Wi-Fi'),
+              actions: const <Widget>[SettingsButton()],
+            )
+          : null,
       body: networks.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

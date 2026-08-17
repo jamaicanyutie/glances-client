@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -11,7 +12,8 @@ import '../../config/server_config.dart';
 /// The client accepts any TLS certificate, because the Tailscale-hosted
 /// Glances server presents a certificate that is not signed by a public
 /// certificate authority. Timeouts are generous to tolerate slow remote
-/// hosts. Requests are logged in debug builds only.
+/// hosts. Requests are logged in debug builds only. When [config.hasAuth] the
+/// Basic-auth credentials are sent preemptively on every request.
 Dio buildDio(ServerConfig config) {
   final dio = Dio(
     BaseOptions(
@@ -31,6 +33,24 @@ Dio buildDio(ServerConfig config) {
     // removed from [IOHttpClientAdapter].
     validateCertificate: (cert, host, port) => true,
   );
+
+  if (config.hasAuth) {
+    // Glances protects its REST API with HTTP Basic auth when a username and
+    // password are configured. The credentials are sent preemptively on every
+    // request; the server replies with 401 when they are wrong, which the
+    // repository surfaces as an ApiException.
+    final String encoded = base64Encode(
+      utf8.encode('${config.authUsername ?? ''}:${config.authPassword ?? ''}'),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.headers['Authorization'] = 'Basic $encoded';
+          handler.next(options);
+        },
+      ),
+    );
+  }
 
   if (kDebugMode) {
     dio.interceptors.add(

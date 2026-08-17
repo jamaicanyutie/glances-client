@@ -18,16 +18,22 @@ import '../../theme/theme.dart';
 /// On hosts behind NAT without a public-IP API configured, the public fields
 /// arrive as empty strings and render as `—`.
 class IpScreen extends ConsumerWidget {
-  const IpScreen({super.key});
+  const IpScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Network hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<IpInfo> ip = ref.watch(ipProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('IP Address'),
-        actions: const <Widget>[SettingsButton()],
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('IP Address'),
+              actions: const <Widget>[SettingsButton()],
+            )
+          : null,
       body: ip.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

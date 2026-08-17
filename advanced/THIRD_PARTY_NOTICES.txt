@@ -1,44 +1,20 @@
 Third-Party Notices
 ===================
 
-This application includes third-party software, an API, and assets.
-Notices for each are listed below.
-
-This document applies to both the Glances Client advanced application
-and the Glances Client minimal application, which share the same icon
-and are built on the same API.
-
---------------------------------------------------------------------------------
-
-Glances (REST API & project)
-----------------------------
-
-Both the minimal and advanced applications are built on the Glances
-REST API, which powers every metric shown (CPU, memory, disks, network,
-Docker containers, services, and more). Without the Glances project,
-this application would not be possible.
-
-  Project:    Glances — An eye on your system
-  Developer:  Nicolas Hennion (nicolargo)
-  Source:     https://github.com/nicolargo/glances
-  Documentation: https://nicolargo.github.io/glances/
-  License:    GNU Lesser General Public License, version 3 (LGPL-3.0)
-              https://www.gnu.org/licenses/lgpl-3.0.txt
-
-Original Glances authors and contributors are listed in the Glances
-project repository. All source code, system metrics, and API
-implementations originate from the Glances project.
+This application includes third-party software and assets. Notices for
+each are listed below.
 
 --------------------------------------------------------------------------------
 
 Glances (logo / app icon)
-----------------------------
+-------------------------
 
-The application icon (used by both the minimal and advanced
-applications) uses the official Glances logo.
+The application icon uses the official Glances logo.
 
+  Project:  Glances — An eye on your system
+  Source:   https://github.com/nicolargo/glances
   Icon design: Elad Barazi (see nicolargo/glances issue #2713)
-  Logo source: https://github.com/nicolargo/glances
+  Homepage: https://nicolargo.github.io/glances/
 
 The logo is part of the Glances project and is distributed under the
 GNU Lesser General Public License, version 3 (LGPL-3.0).

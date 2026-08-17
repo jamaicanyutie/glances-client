@@ -28,22 +28,31 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _addressController;
   late final FocusNode _addressFocus;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
 
   /// The address the user last probed (or saved) — drives the inline
   /// connection-test result. Null until the first probe.
   String? _testedUrl;
+
+  /// Whether the password field masks its input.
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
     _addressController = TextEditingController();
     _addressFocus = FocusNode();
+    _usernameController = TextEditingController();
+    _passwordController = TextEditingController();
   }
 
   @override
   void dispose() {
     _addressController.dispose();
     _addressFocus.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -52,6 +61,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final AppSettings settings =
         ref.watch(settingsProvider).value ?? AppSettings.defaults();
     _addressController.text = settings.serverUrl ?? '';
+    _usernameController.text = settings.authUsername ?? '';
+    _passwordController.text = settings.authPassword ?? '';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -118,6 +129,93 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           const _DiscoverySection(),
+          const SizedBox(height: AppSpacing.lg),
+          _SectionHeader(title: 'Authentication', icon: Icons.lock),
+          const SizedBox(height: AppSpacing.sm),
+          _SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                TextField(
+                  controller: _usernameController,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    hintText: 'Leave empty for an open server',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Optional',
+                    prefixIcon: const Icon(Icons.key),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saveAuth,
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: const Text('Save credentials'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _clearAuth,
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('Clear'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (settings.hasAuth) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: AppColors.success,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Credentials saved for '
+                          '${settings.authUsername ?? 'this server'}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           _SectionHeader(title: 'Refresh intervals', icon: Icons.refresh),
           const SizedBox(height: AppSpacing.sm),
@@ -192,6 +290,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _probe(String input) {
     setState(() => _testedUrl = input);
     ref.invalidate(serverProbeProvider(input));
+  }
+
+  /// Persists the HTTP Basic-auth credentials entered in the form. Empty
+  /// fields clear the corresponding value, so saving an empty form disables
+  /// auth entirely.
+  Future<void> _saveAuth() async {
+    final String username = _usernameController.text.trim();
+    final String password = _passwordController.text;
+    await ref
+        .read(settingsProvider.notifier)
+        .setAuth(username.isEmpty ? null : username, password.isEmpty ? null : password);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Credentials saved.')),
+    );
+  }
+
+  /// Clears both Basic-auth fields and the persisted credentials.
+  Future<void> _clearAuth() async {
+    _usernameController.clear();
+    _passwordController.clear();
+    await ref.read(settingsProvider.notifier).clearAuth();
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Credentials cleared.')),
+    );
   }
 }
 
