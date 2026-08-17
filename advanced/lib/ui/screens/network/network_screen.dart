@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../data/models/glances_all.dart';
 import '../../../data/models/network_info.dart';
@@ -8,7 +7,6 @@ import '../../../data/providers.dart';
 import '../../components/error_view.dart';
 import '../../components/loading_view.dart';
 import '../../components/metric_sheets.dart';
-import '../../components/nav_card.dart';
 import '../../components/responsive_card_grid.dart';
 import '../../components/settings_button.dart';
 import '../../theme/colors.dart';
@@ -20,18 +18,25 @@ import '../../utils/formatters.dart';
 /// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders one
 /// card per network interface showing the link state, cumulative bytes
 /// received/sent and the interface speed. Pull-to-refresh re-fetches the
-/// snapshot.
+/// snapshot. This is the Interfaces sub-tab of the Network hub (connections
+/// live in [NetworkConnectionsView]; IP/Wi-Fi/Ports are sibling sub-tabs).
 class NetworkScreen extends ConsumerWidget {
-  const NetworkScreen({super.key});
+  const NetworkScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Network hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Network'),
-          actions: const <Widget>[SettingsButton()],
-        ),
+        appBar: showAppBar
+            ? AppBar(
+                title: const Text('Network'),
+                actions: const <Widget>[SettingsButton()],
+              )
+            : null,
       body: allStats.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -61,6 +66,56 @@ class NetworkScreen extends ConsumerWidget {
                     else
                       for (final NetworkInfo iface in interfaces)
                         _InterfaceCard(iface: iface),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Live aggregate network connections summary.
+///
+/// Watches [allStatsProvider] and renders a "Connections" section with a card
+/// that opens the aggregate connections sheet. This is the Connections sub-tab
+/// of the Network hub.
+class NetworkConnectionsView extends ConsumerWidget {
+  const NetworkConnectionsView({super.key, this.showAppBar = true});
+
+  /// When false the view renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Network hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+    return Scaffold(
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Connections'),
+              actions: const <Widget>[SettingsButton()],
+            )
+          : null,
+      body: allStats.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        loading: () => const LoadingView(),
+        error: (Object error, StackTrace stackTrace) => ErrorView(
+          message: '$error',
+          onRetry: () => ref.invalidate(allStatsProvider),
+        ),
+        data: (GlancesAll data) {
+          return RefreshIndicator(
+            onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: <Widget>[
+                ResponsiveCardGrid(
+                  children: <Widget>[
                     ResponsiveCardGrid.span(
                       const _SectionHeader(
                         title: 'Connections',
@@ -68,30 +123,6 @@ class NetworkScreen extends ConsumerWidget {
                       ),
                     ),
                     const _ConnectionsCard(),
-                    ResponsiveCardGrid.span(
-                      const _SectionHeader(
-                        title: 'Addressing & ports',
-                        icon: Icons.lan_outlined,
-                      ),
-                    ),
-                    NavCard(
-                      title: 'IP Address',
-                      icon: Icons.lan_outlined,
-                      onTap: () => context.push('/ip'),
-                      caption: 'Private and public network addressing →',
-                    ),
-                    NavCard(
-                      title: 'Wi-Fi',
-                      icon: Icons.wifi,
-                      onTap: () => context.push('/wifi'),
-                      caption: 'Detected Wi-Fi networks →',
-                    ),
-                    NavCard(
-                      title: 'Ports',
-                      icon: Icons.hub_outlined,
-                      onTap: () => context.push('/ports'),
-                      caption: 'Host and port reachability checks →',
-                    ),
                   ],
                 ),
               ],

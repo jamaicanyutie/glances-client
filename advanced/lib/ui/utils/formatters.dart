@@ -50,3 +50,22 @@ String formatRate(double? bytes, double? timeSinceUpdate) {
   }
   return '—/s';
 }
+
+/// Maps a server-provided unit label (from the repository's `getItemUnit`)
+/// onto the per-second suffix used next to a rate value.
+///
+/// The client hardcodes `/s` for byte rates; the server's Glances unit
+/// identifiers (`percent`, `bytes`, `bytes_per_sec`) already describe the
+/// same byte-per-second metric, so any rate-style unit resolves back to `/s`.
+/// Returns [fallback] when the server exposes no unit, keeping the hardcoded
+/// suffix intact.
+String rateSuffix(String? serverUnit, {String fallback = '/s'}) {
+  if (serverUnit == null) {
+    return fallback;
+  }
+  final String unit = serverUnit.trim().toLowerCase();
+  if (unit == 'bytes_per_sec' || unit == 'bytes_per_second' || unit == 'b/s') {
+    return '/s';
+  }
+  return fallback;
+}

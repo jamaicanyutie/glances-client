@@ -16,22 +16,31 @@ import '../../theme/colors.dart';
 import '../../theme/theme.dart';
 import '../../utils/formatters.dart';
 
-/// Live Disks screen: filesystem usage plus per-device disk I/O rates.
+/// Live Disks screen: filesystem usage per mount.
 ///
 /// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders a
-/// "Filesystems" section with one card per mount and a "Disk I/O" summary card
-/// with per-device read/write rates. Pull-to-refresh re-fetches the snapshot.
+/// "Filesystems" section with one card per mount. Pull-to-refresh re-fetches
+/// the snapshot. The Disk I/O section lives in [DisksIoView]; this screen is
+/// the Filesystems sub-tab of the Disks hub.
 class DisksScreen extends ConsumerWidget {
-  const DisksScreen({super.key});
+  const DisksScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Disks hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+    final AsyncValue<Set<String>> capabilities =
+        ref.watch(capabilitiesProvider);
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Disks'),
-          actions: const <Widget>[SettingsButton()],
-        ),
+        appBar: showAppBar
+            ? AppBar(
+                title: const Text('Disks'),
+                actions: const <Widget>[SettingsButton()],
+              )
+            : null,
       body: allStats.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -63,18 +72,13 @@ class DisksScreen extends ConsumerWidget {
                     else
                       for (final FsInfo mount in mounts)
                         _MountCard(mount: mount),
-                    NavCard(
-                      title: 'Virtual Machines',
-                      icon: Icons.dns_outlined,
-                      onTap: () => context.push('/vms'),
-                      caption: 'Libvirt/KVM virtual machines →',
-                    ),
-                    ResponsiveCardGrid.span(
-                      const _SectionHeader(title: 'Disk I/O', icon: Icons.speed),
-                    ),
-                    ResponsiveCardGrid.span(
-                      _DiskIoCard(diskio: data.diskio),
-                    ),
+                    if (hasPluginCapability(capabilities, 'vms'))
+                      NavCard(
+                        title: 'Virtual Machines',
+                        icon: Icons.dns_outlined,
+                        onTap: () => context.push('/docker/vms'),
+                        caption: 'Libvirt/KVM virtual machines →',
+                      ),
                   ],
                 ),
               ],
@@ -106,6 +110,65 @@ class DisksScreen extends ConsumerWidget {
         return pb.compareTo(pa);
       });
     return sorted;
+  }
+}
+
+/// Live per-device disk I/O rates.
+///
+/// Watches [allStatsProvider] and renders a "Disk I/O" section with one card
+/// listing each disk device's read/write rates. This is the Disk I/O sub-tab
+/// of the Disks hub (the Filesystems sub-tab is [DisksScreen]).
+class DisksIoView extends ConsumerWidget {
+  const DisksIoView({super.key, this.showAppBar = true});
+
+  /// When false the view renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Disks hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+    return Scaffold(
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Disk I/O'),
+              actions: const <Widget>[SettingsButton()],
+            )
+          : null,
+      body: allStats.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        loading: () => const LoadingView(),
+        error: (Object error, StackTrace stackTrace) => ErrorView(
+          message: '$error',
+          onRetry: () => ref.invalidate(allStatsProvider),
+        ),
+        data: (GlancesAll data) {
+          return RefreshIndicator(
+            onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: <Widget>[
+                ResponsiveCardGrid(
+                  children: <Widget>[
+                    ResponsiveCardGrid.span(
+                      const _SectionHeader(
+                        title: 'Disk I/O',
+                        icon: Icons.speed,
+                      ),
+                    ),
+                    ResponsiveCardGrid.span(
+                      _DiskIoCard(diskio: data.diskio),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -290,14 +353,30 @@ class _DiskIoCard extends StatelessWidget {
 
 /// A single disk row: device name plus read and write rate cells. Tapping the
 /// row opens the device detail sheet with counters and rate history.
-class _IoRow extends StatelessWidget {
+class _IoRow extends ConsumerWidget {
   const _IoRow({required this.device});
 
   final DiskIoInfo device;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final String? readUnit = ref.watch(
+      itemUnitProvider(
+        ItemMetadataQuery(
+          plugin: 'diskio',
+          item: '${device.diskName}/read_bytes_rate_per_sec',
+        ),
+      ),
+    ).value;
+    final String? writeUnit = ref.watch(
+      itemUnitProvider(
+        ItemMetadataQuery(
+          plugin: 'diskio',
+          item: '${device.diskName}/write_bytes_rate_per_sec',
+        ),
+      ),
+    ).value;
     return InkWell(
       onTap: () => showMetricSheet(
         context: context,
@@ -323,13 +402,21 @@ class _IoRow extends StatelessWidget {
             _IoRateCell(
               icon: Icons.arrow_downward,
               color: AppColors.accent,
-              label: _ioRate(device.readBytes, device.timeSinceUpdate),
+              label: _ioRate(
+                device.readBytes,
+                device.timeSinceUpdate,
+                suffix: rateSuffix(readUnit),
+              ),
             ),
             const SizedBox(width: AppSpacing.sm),
             _IoRateCell(
               icon: Icons.arrow_upward,
               color: AppColors.warning,
-              label: _ioRate(device.writeBytes, device.timeSinceUpdate),
+              label: _ioRate(
+                device.writeBytes,
+                device.timeSinceUpdate,
+                suffix: rateSuffix(writeUnit),
+              ),
             ),
           ],
         ),
@@ -389,15 +476,15 @@ class _IoRateCell extends StatelessWidget {
 /// last updated; the rate is `bytes / timeSinceUpdate`. When no usable update
 /// window is available, falls back to the cumulative byte count, or `—/s`
 /// when the counter itself is missing.
-String _ioRate(double? bytes, double? timeSinceUpdate) {
+String _ioRate(double? bytes, double? timeSinceUpdate, {String suffix = '/s'}) {
   final double? window = timeSinceUpdate;
   if (bytes != null && window != null && window > 0) {
-    return '${formatBytes(bytes / window)}/s';
+    return '${formatBytes(bytes / window)}$suffix';
   }
   if (bytes != null) {
     return formatBytes(bytes);
   }
-  return '—/s';
+  return '—$suffix';
 }
 
 /// Clamps [value] into the 0-100 range and returns the 0-1 fraction used by

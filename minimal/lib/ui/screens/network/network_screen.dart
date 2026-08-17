@@ -6,59 +6,52 @@ import '../../../data/models/network_info.dart';
 import '../../../data/providers.dart';
 import '../../components/error_view.dart';
 import '../../components/loading_view.dart';
-import '../../components/server_reset_button.dart';
 import '../../theme/colors.dart';
 import '../../theme/theme.dart';
 import '../../utils/formatters.dart';
 
-/// Live Network screen: per-interface traffic counters and link speed.
+/// Live Network interfaces body.
 ///
 /// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders one
 /// card per network interface showing the link state, cumulative bytes
-/// received/sent and the interface speed. Pull-to-refresh re-fetches the
-/// snapshot.
+/// received/sent and the interface speed. This is the Interfaces sub-tab of
+/// the Network hub. Pull-to-refresh re-fetches the snapshot.
 class NetworkScreen extends ConsumerWidget {
   const NetworkScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Network'),
-        actions: const <Widget>[ServerResetButton()],
+    return allStats.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const LoadingView(),
+      error: (Object error, StackTrace stackTrace) => ErrorView(
+        message: '$error',
+        onRetry: () => ref.invalidate(allStatsProvider),
       ),
-      body: allStats.when(
-        skipLoadingOnReload: true,
-        skipLoadingOnRefresh: true,
-        loading: () => const LoadingView(),
-        error: (Object error, StackTrace stackTrace) => ErrorView(
-          message: '$error',
-          onRetry: () => ref.invalidate(allStatsProvider),
-        ),
-        data: (GlancesAll data) {
-          final List<NetworkInfo>? interfaces = data.network;
-          return RefreshIndicator(
-            onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: <Widget>[
-                if (interfaces == null)
-                  const _MessageCard(message: 'No network interfaces')
-                else if (interfaces.isEmpty)
-                  const _MessageCard(message: 'No interfaces reported')
-                else
-                  for (final NetworkInfo iface in interfaces) ...[
-                    _InterfaceCard(iface: iface),
-                    if (iface != interfaces.last)
-                      const SizedBox(height: AppSpacing.md),
-                  ],
-              ],
-            ),
-          );
-        },
-      ),
+      data: (GlancesAll data) {
+        final List<NetworkInfo>? interfaces = data.network;
+        return RefreshIndicator(
+          onRefresh: () => ref.read(allStatsProvider.notifier).refresh(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: <Widget>[
+              if (interfaces == null)
+                const _MessageCard(message: 'No network interfaces')
+              else if (interfaces.isEmpty)
+                const _MessageCard(message: 'No interfaces reported')
+              else
+                for (final NetworkInfo iface in interfaces) ...[
+                  _InterfaceCard(iface: iface),
+                  if (iface != interfaces.last)
+                    const SizedBox(height: AppSpacing.md),
+                ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

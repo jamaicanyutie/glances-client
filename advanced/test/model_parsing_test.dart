@@ -3,12 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glances_client_advanced/data/models/alert_info.dart';
 import 'package:glances_client_advanced/data/models/cpu_info.dart';
 import 'package:glances_client_advanced/data/models/docker_container_info.dart';
+import 'package:glances_client_advanced/data/models/folders_info.dart';
 import 'package:glances_client_advanced/data/models/fs_info.dart';
 import 'package:glances_client_advanced/data/models/glances_all.dart';
+import 'package:glances_client_advanced/data/models/gpu_info.dart';
 import 'package:glances_client_advanced/data/models/ip_info.dart';
 import 'package:glances_client_advanced/data/models/port_info.dart';
 import 'package:glances_client_advanced/data/models/process_count_info.dart';
 import 'package:glances_client_advanced/data/models/process_info.dart';
+import 'package:glances_client_advanced/data/models/program_info.dart';
 import 'package:glances_client_advanced/data/models/sensor_info.dart';
 import 'package:glances_client_advanced/data/models/system_info.dart';
 import 'package:glances_client_advanced/data/models/vm_info.dart';
@@ -510,6 +513,102 @@ void main() {
       expect(info.memoryUsage, isNull);
       expect(info.load1min, isNull);
       expect(info.engineVersion, isNull);
+    });
+  });
+
+  group('FolderInfo.fromJson', () {
+    test('parses a full folder entry', () {
+      final FolderInfo info = FolderInfo.fromJson(<String, dynamic>{
+        'name': 'custom-folders',
+        'used': 1073741824,
+        'free': 300006731776,
+        'size': 301081395200,
+        'percent': 0.35,
+      });
+      expect(info.name, 'custom-folders');
+      expect(info.used, 1073741824);
+      expect(info.free, 300006731776);
+      expect(info.size, 301081395200);
+      expect(info.percent, 0.35);
+    });
+
+    test('tolerates missing optional keys', () {
+      final FolderInfo info = FolderInfo.fromJson(<String, dynamic>{
+        'name': 'minimal',
+      });
+      expect(info.name, 'minimal');
+      expect(info.used, isNull);
+      expect(info.free, isNull);
+      expect(info.size, isNull);
+      expect(info.percent, isNull);
+    });
+  });
+
+  group('GpuInfo.fromJson', () {
+    test('parses a full GPU entry', () {
+      final GpuInfo info = GpuInfo.fromJson(<String, dynamic>{
+        'key': 'AMD_0',
+        'name': 'AMD RX 6900 XT',
+        'vendor': 'amd',
+        'driver': 'amdgpu',
+        'temperature': 51.0,
+        'mem': 30,
+        'proc': 12,
+      });
+      expect(info.key, 'AMD_0');
+      expect(info.name, 'AMD RX 6900 XT');
+      expect(info.vendor, 'amd');
+      expect(info.driver, 'amdgpu');
+      expect(info.temperature, 51.0);
+      expect(info.mem, 30);
+      expect(info.proc, 12);
+    });
+
+    test('tolerates missing optional keys', () {
+      final GpuInfo info = GpuInfo.fromJson(<String, dynamic>{
+        'name': 'Mali-G77',
+      });
+      expect(info.name, 'Mali-G77');
+      expect(info.vendor, isNull);
+      expect(info.temperature, isNull);
+      expect(info.mem, isNull);
+      expect(info.proc, isNull);
+    });
+  });
+
+  group('ProgramInfo.fromJson', () {
+    test('parses an aggregated program entry', () {
+      final ProgramInfo info = ProgramInfo.fromJson(<String, dynamic>{
+        'name': 'glances',
+        'cmdline': <String>['python', '/usr/bin/glances'],
+        'pid': '_',
+        'cpu_percent': 3.4,
+        'memory_percent': 1.5,
+        'num_threads': 5,
+        'nprocs': 2,
+        'username': 'pi',
+        'status': 'S',
+      });
+      expect(info.name, 'glances');
+      expect(info.cmdline, <String>['python', '/usr/bin/glances']);
+      expect(info.pid, '_');
+      expect(info.cpuPercent, 3.4);
+      expect(info.memoryPercent, 1.5);
+      expect(info.numThreads, 5);
+      expect(info.nprocs, 2);
+      expect(info.username, 'pi');
+      expect(info.status, 'S');
+    });
+
+    test('tolerates missing optional keys', () {
+      final ProgramInfo info = ProgramInfo.fromJson(<String, dynamic>{
+        'name': 'sleep',
+      });
+      expect(info.name, 'sleep');
+      expect(info.cpuPercent, isNull);
+      expect(info.memoryPercent, isNull);
+      expect(info.numThreads, isNull);
+      expect(info.nprocs, isNull);
     });
   });
 }

@@ -19,7 +19,11 @@ import '../../utils/formatters.dart';
 /// dot, name, PID/user/status and CPU/memory percentages. Pull-to-refresh
 /// forces a re-fetch.
 class ProcessesScreen extends ConsumerWidget {
-  const ProcessesScreen({super.key});
+  const ProcessesScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Services hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,10 +31,12 @@ class ProcessesScreen extends ConsumerWidget {
         ref.watch(topProcessesProvider);
 
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Processes'),
-          actions: const <Widget>[SettingsButton()],
-        ),
+        appBar: showAppBar
+            ? AppBar(
+                title: const Text('Processes'),
+                actions: const <Widget>[SettingsButton()],
+              )
+            : null,
       body: processes.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

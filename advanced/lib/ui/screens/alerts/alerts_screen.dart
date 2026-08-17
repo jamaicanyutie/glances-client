@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/exceptions.dart';
 import '../../../data/models/alert_info.dart';
 import '../../../data/providers.dart';
 import '../../components/error_view.dart';
@@ -23,10 +24,30 @@ class AlertsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<AlertInfo>> alerts = ref.watch(alertsProvider);
+    final bool hasAlerts = alerts.hasValue && alerts.value!.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Alerts'),
-        actions: const <Widget>[SettingsButton()],
+        actions: <Widget>[
+          if (hasAlerts)
+            PopupMenuButton<String>(
+              tooltip: 'Clear alerts',
+              onSelected: (String action) =>
+                  _clearAlerts(context, ref, all: action == 'all'),
+              itemBuilder: (BuildContext context) =>
+                  <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'warning',
+                  child: Text('Clear warnings'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'all',
+                  child: Text('Clear all'),
+                ),
+              ],
+            ),
+          const SettingsButton(),
+        ],
       ),
       body: alerts.when(
         skipLoadingOnReload: true,
@@ -78,6 +99,63 @@ class AlertsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Clears WARNING-level (or all) alerts from the server, then refreshes the
+/// list.
+///
+/// "Clear all" is destructive, so it first asks for confirmation. Failures —
+/// including servers that do not allow writes (401/403) or lack the events
+/// endpoint — are surfaced as a snackbar with the server's message.
+Future<void> _clearAlerts(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool all,
+}) async {
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  if (all) {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Clear all alerts?'),
+        content: const Text(
+          'This permanently removes every recorded warning and critical '
+          'event from the server.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Clear all'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+  }
+  try {
+    await ref.read(glancesRepositoryProvider).clearAlerts(all: all);
+  } on ApiException catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    messenger.showSnackBar(
+      SnackBar(content: Text('Failed to clear alerts: ${error.message}')),
+    );
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+  ref.invalidate(alertsProvider);
+  messenger.showSnackBar(
+    SnackBar(content: Text(all ? 'All alerts cleared' : 'Warnings cleared')),
+  );
 }
 
 /// Centered empty state shown when the server has recorded no alerts.

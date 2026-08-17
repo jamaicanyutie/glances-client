@@ -17,10 +17,23 @@ class ServerConfig {
   /// certificates (Tailscale, LAN-only servers).
   final bool allowInsecureTls;
 
+  /// Optional HTTP Basic-auth username, or null when unauthenticated.
+  final String? authUsername;
+
+  /// Optional HTTP Basic-auth password, or null when unauthenticated.
+  final String? authPassword;
+
+  /// True when Basic-auth credentials are configured.
+  bool get hasAuth =>
+      (authUsername != null && authUsername!.isNotEmpty) ||
+      (authPassword != null && authPassword!.isNotEmpty);
+
   /// Creates a [ServerConfig] with an explicit base URL.
   const ServerConfig({
     required this.baseUrl,
     this.allowInsecureTls = true,
+    this.authUsername,
+    this.authPassword,
   });
 
   /// Normalizes a user-entered address into a base URL.
@@ -139,5 +152,7 @@ final serverConfigProvider = Provider<ServerConfig?>((ref) {
   return ServerConfig(
     baseUrl: serverUrl,
     allowInsecureTls: settings.allowInsecureTls,
+    authUsername: settings.authUsername,
+    authPassword: settings.authPassword,
   );
 });

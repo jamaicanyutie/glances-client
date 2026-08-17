@@ -14,15 +14,17 @@ import '../../utils/formatters.dart';
 
 /// Live Disks screen: filesystem usage plus per-device disk I/O rates.
 ///
-/// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders a
-/// "Filesystems" section with one card per mount and a "Disk I/O" summary card
-/// with per-device read/write rates. Pull-to-refresh re-fetches the snapshot.
+/// Watches [allStatsProvider] (auto-refreshed every 2 seconds) and renders one
+/// card per filesystem mount (sorted by usage, most-used first) followed by a
+/// per-device disk I/O card. Filesystems and I/O share a single pane.
+/// Pull-to-refresh re-fetches the snapshot.
 class DisksScreen extends ConsumerWidget {
   const DisksScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Disks'),
@@ -44,10 +46,7 @@ class DisksScreen extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppSpacing.md),
               children: <Widget>[
-                const _SectionHeader(
-                  title: 'Filesystems',
-                  icon: Icons.storage,
-                ),
+                const _SectionHeader(title: 'Filesystems', icon: Icons.storage),
                 const SizedBox(height: AppSpacing.sm),
                 if (mounts.isEmpty)
                   const _MessageCard(message: 'No filesystems reported')
@@ -57,7 +56,7 @@ class DisksScreen extends ConsumerWidget {
                     if (mount != mounts.last)
                       const SizedBox(height: AppSpacing.sm),
                   ],
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 const _SectionHeader(title: 'Disk I/O', icon: Icons.speed),
                 const SizedBox(height: AppSpacing.sm),
                 _DiskIoCard(diskio: data.diskio),

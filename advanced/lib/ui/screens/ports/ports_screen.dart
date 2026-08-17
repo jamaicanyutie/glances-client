@@ -17,16 +17,22 @@ import '../../theme/theme.dart';
 /// renders one card per monitored port, with its reachability status and
 /// round-trip time. Pull-to-refresh forces a re-fetch.
 class PortsScreen extends ConsumerWidget {
-  const PortsScreen({super.key});
+  const PortsScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Network hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<PortInfo>> ports = ref.watch(portsProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ports'),
-        actions: const <Widget>[SettingsButton()],
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Ports'),
+              actions: const <Widget>[SettingsButton()],
+            )
+          : null,
       body: ports.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

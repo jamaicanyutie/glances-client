@@ -7,9 +7,13 @@ import '../config/app_settings.dart';
 import '../config/server_config.dart';
 import 'api/dio_client.dart';
 import 'api/glances_repository.dart';
+import 'exceptions.dart';
 import 'models/alert_info.dart';
+import 'models/alert_thresholds.dart';
 import 'models/connection_stats_info.dart';
+import 'models/folders_info.dart';
 import 'models/glances_all.dart';
+import 'models/gpu_info.dart';
 import 'models/history_point.dart';
 import 'models/ip_info.dart';
 import 'models/mem_swap_info.dart';
@@ -17,6 +21,7 @@ import 'models/per_cpu_info.dart';
 import 'models/port_info.dart';
 import 'models/process_detail_info.dart';
 import 'models/process_info.dart';
+import 'models/program_info.dart';
 import 'models/sensor_info.dart';
 import 'models/system_info.dart';
 import 'models/vm_info.dart';
@@ -287,6 +292,45 @@ final class ProcessDetailNotifier extends AsyncNotifier<ProcessDetailInfo?> {
 final processDetailProvider =
     AsyncNotifierProvider.family<ProcessDetailNotifier, ProcessDetailInfo?, int>(
   ProcessDetailNotifier.new,
+);
+
+/// Notifier backing [extendedProcessesProvider].
+///
+/// Fetches the extended process list (`GET /api/4/processes/extended`) on
+/// build, then re-fetches on every [refreshIntervalProvider]. Servers not
+/// started with `--enable-process-extended` report an empty list, which the
+/// UI renders as a "not enabled" empty state.
+final class ExtendedProcessesNotifier extends AsyncNotifier<List<ProcessDetailInfo>> {
+  @override
+  Future<List<ProcessDetailInfo>> build() async {
+    final Duration interval = ref.watch(refreshIntervalProvider);
+    _startAutoRefresh(interval);
+    return ref.watch(glancesRepositoryProvider).getExtendedProcesses();
+  }
+
+  /// Forces an immediate re-fetch of the extended process list.
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+    try {
+      await ref.container.read(extendedProcessesProvider.future);
+    } on Object {
+      // Failure is surfaced through the provider's AsyncValue.
+    }
+  }
+
+  void _startAutoRefresh(Duration interval) {
+    final Timer timer = Timer.periodic(interval, (_) {
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
+  }
+}
+
+/// Extended process list, auto-refreshed every [refreshIntervalProvider].
+/// Empty when the server does not collect extended stats.
+final extendedProcessesProvider =
+    AsyncNotifierProvider<ExtendedProcessesNotifier, List<ProcessDetailInfo>>(
+  ExtendedProcessesNotifier.new,
 );
 
 /// Notifier backing [connectionsProvider].
@@ -583,13 +627,24 @@ final portsProvider = AsyncNotifierProvider<PortsNotifier, List<PortInfo>>(
 /// Notifier backing [vmsProvider].
 ///
 /// Fetches the virtual machines (`GET /api/4/vms`) on build, then re-fetches
-/// on every [refreshIntervalProvider].
+/// on every [refreshIntervalProvider]. When the server does not report the
+/// `vms` plugin (e.g. no libvirt, which surfaces as HTTP 400 "Unknown plugin"),
+/// resolves to an empty list so the screen shows the empty state instead of an
+/// error.
 final class VmsNotifier extends AsyncNotifier<List<VmInfo>> {
   @override
   Future<List<VmInfo>> build() async {
     final Duration interval = ref.watch(refreshIntervalProvider);
     _startAutoRefresh(interval);
-    return ref.watch(glancesRepositoryProvider).getVms();
+    final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+    try {
+      return await repo.getVms();
+    } on ApiException catch (e) {
+      if (e.statusCode == 400) {
+        return const <VmInfo>[];
+      }
+      rethrow;
+    }
   }
 
   /// Forces an immediate re-fetch and waits for it to complete (used by
@@ -614,6 +669,146 @@ final class VmsNotifier extends AsyncNotifier<List<VmInfo>> {
 /// Virtual machines, auto-refreshed every [refreshIntervalProvider].
 final vmsProvider = AsyncNotifierProvider<VmsNotifier, List<VmInfo>>(
   VmsNotifier.new,
+);
+
+/// Notifier backing [foldersProvider].
+///
+/// Fetches the monitored folders (`GET /api/4/folders`) on build, then
+/// re-fetches on every [refreshIntervalProvider]. When the server does not
+/// report the `folders` plugin (surfaced as HTTP 400 "Unknown plugin"),
+/// resolves to an empty list so the screen shows the empty state instead of an
+/// error.
+final class FoldersNotifier extends AsyncNotifier<List<FolderInfo>> {
+  @override
+  Future<List<FolderInfo>> build() async {
+    final Duration interval = ref.watch(refreshIntervalProvider);
+    _startAutoRefresh(interval);
+    final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+    try {
+      return await repo.getFolders();
+    } on ApiException catch (e) {
+      if (e.statusCode == 400) {
+        return const <FolderInfo>[];
+      }
+      rethrow;
+    }
+  }
+
+  /// Forces an immediate re-fetch and waits for it to complete (used by
+  /// pull-to-refresh).
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+    try {
+      await ref.container.read(foldersProvider.future);
+    } on Object {
+      // Failure is surfaced through the provider's AsyncValue.
+    }
+  }
+
+  void _startAutoRefresh(Duration interval) {
+    final Timer timer = Timer.periodic(interval, (_) {
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
+  }
+}
+
+/// Monitored folders, auto-refreshed every [refreshIntervalProvider].
+final foldersProvider = AsyncNotifierProvider<FoldersNotifier, List<FolderInfo>>(
+  FoldersNotifier.new,
+);
+
+/// Notifier backing [gpuProvider].
+///
+/// Fetches the GPUs (`GET /api/4/gpu`) on build, then re-fetches on every
+/// [refreshIntervalProvider]. When the server does not report the `gpu`
+/// plugin (surfaced as HTTP 400 "Unknown plugin"), resolves to an empty list
+/// so the screen shows the empty state instead of an error.
+final class GpuNotifier extends AsyncNotifier<List<GpuInfo>> {
+  @override
+  Future<List<GpuInfo>> build() async {
+    final Duration interval = ref.watch(refreshIntervalProvider);
+    _startAutoRefresh(interval);
+    final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+    try {
+      return await repo.getGpu();
+    } on ApiException catch (e) {
+      if (e.statusCode == 400) {
+        return const <GpuInfo>[];
+      }
+      rethrow;
+    }
+  }
+
+  /// Forces an immediate re-fetch and waits for it to complete (used by
+  /// pull-to-refresh).
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+    try {
+      await ref.container.read(gpuProvider.future);
+    } on Object {
+      // Failure is surfaced through the provider's AsyncValue.
+    }
+  }
+
+  void _startAutoRefresh(Duration interval) {
+    final Timer timer = Timer.periodic(interval, (_) {
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
+  }
+}
+
+/// GPUs, auto-refreshed every [refreshIntervalProvider].
+final gpuProvider = AsyncNotifierProvider<GpuNotifier, List<GpuInfo>>(
+  GpuNotifier.new,
+);
+
+/// Notifier backing [programsProvider].
+///
+/// Fetches the aggregated program list (`GET /api/4/programlist`) on build,
+/// then re-fetches on every [refreshIntervalProvider]. When the server does
+/// not report the `programlist` plugin (surfaced as HTTP 400 "Unknown
+/// plugin"), resolves to an empty list so the screen shows the empty state
+/// instead of an error.
+final class ProgramsNotifier extends AsyncNotifier<List<ProgramInfo>> {
+  @override
+  Future<List<ProgramInfo>> build() async {
+    final Duration interval = ref.watch(refreshIntervalProvider);
+    _startAutoRefresh(interval);
+    final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+    try {
+      return await repo.getPrograms();
+    } on ApiException catch (e) {
+      if (e.statusCode == 400) {
+        return const <ProgramInfo>[];
+      }
+      rethrow;
+    }
+  }
+
+  /// Forces an immediate re-fetch and waits for it to complete (used by
+  /// pull-to-refresh).
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+    try {
+      await ref.container.read(programsProvider.future);
+    } on Object {
+      // Failure is surfaced through the provider's AsyncValue.
+    }
+  }
+
+  void _startAutoRefresh(Duration interval) {
+    final Timer timer = Timer.periodic(interval, (_) {
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
+  }
+}
+
+/// Aggregated program list, auto-refreshed every [refreshIntervalProvider].
+final programsProvider = AsyncNotifierProvider<ProgramsNotifier, List<ProgramInfo>>(
+  ProgramsNotifier.new,
 );
 
 /// Memory-swap statistics (`GET /api/4/memswap`).
@@ -643,3 +838,146 @@ final itemHistoryProvider =
         nb: query.nb,
       ),
 );
+
+/// Identifies a single plugin-field metadata lookup (unit / description).
+///
+/// Used as the family argument of [itemUnitProvider] and
+/// [itemDescriptionProvider]. Immutable so the provider's equality check (and
+/// therefore caching) works correctly.
+class ItemMetadataQuery {
+  /// Creates an [ItemMetadataQuery].
+  const ItemMetadataQuery({
+    required this.plugin,
+    required this.item,
+  });
+
+  /// Plugin name (`cpu`, `mem`, `fs`, `diskio`, `network`, ...).
+  final String plugin;
+
+  /// Field whose metadata should be returned.
+  final String item;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ItemMetadataQuery &&
+      other.plugin == plugin &&
+      other.item == item;
+
+  @override
+  int get hashCode => Object.hash(plugin, item);
+}
+
+/// Server-provided unit for a plugin item (`GET /api/4/{plugin}/{item}/unit`).
+///
+/// Fetched lazily per (plugin, item) and auto-disposed when unused. Resolves
+/// to null when the server exposes no unit for the item; callers are expected
+/// to fall back to their hardcoded unit in that case.
+final itemUnitProvider =
+    FutureProvider.autoDispose.family<String?, ItemMetadataQuery>(
+  (ref, query) => ref
+      .watch(glancesRepositoryProvider)
+      .getItemUnit(query.plugin, query.item),
+);
+
+/// Server-provided description for a plugin item
+/// (`GET /api/4/{plugin}/{item}/description`).
+///
+/// Fetched lazily per (plugin, item) and auto-disposed when unused. Resolves
+/// to null when the server exposes no description for the item.
+final itemDescriptionProvider =
+    FutureProvider.autoDispose.family<String?, ItemMetadataQuery>(
+  (ref, query) => ref
+      .watch(glancesRepositoryProvider)
+      .getItemDescription(query.plugin, query.item),
+);
+
+/// Server-configured alert thresholds (`GET /api/4/all/limits` + `/all/views`).
+///
+/// Drives the [AlertColorResolver] so alert colors follow server truth instead
+/// of the client's hardcoded 60/85 scale. Fetched once per server config; a
+/// failed fetch (older Glances versions, empty limits) resolves to an empty
+/// [AlertThresholds] so callers transparently fall back to their built-in
+/// scale rather than surfacing an error.
+final alertThresholdsProvider = Provider<AsyncValue<AlertThresholds>>((ref) {
+  final FutureProvider<AlertThresholds> p = FutureProvider<AlertThresholds>((
+    ref,
+  ) async {
+    final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+    try {
+      return await repo.getLimits();
+    } on Object {
+      return const AlertThresholds(<String, Map<String, MetricLimits>>{});
+    }
+  });
+  return ref.watch(p);
+});
+
+/// Server-computed decoration labels (`GET /api/4/all/views`).
+///
+/// Merged into the [alertThresholdsProvider] data in screens that want the
+/// server's own OK/WARNING/CRITICAL verdict (status chips, card accents).
+final alertViewsProvider = FutureProvider<AlertThresholds>((ref) async {
+  final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+  try {
+    return await repo.getViews();
+  } on Object {
+    return const AlertThresholds(<String, Map<String, MetricLimits>>{});
+  }
+});
+
+/// Server status payload (`GET /api/4/status`).
+///
+/// One of the two endpoints always served without authentication. Used for
+/// the version badge and connectivity checks on the home screen.
+final serverStatusProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.watch(glancesRepositoryProvider).getStatus();
+});
+
+/// Enabled plugin names (`GET /api/4/pluginslist`), as a sorted set.
+///
+/// Used for capability detection: cards and sub-tabs for plugins the server
+/// does not report are hidden. Resolves to an empty set when the endpoint is
+/// unavailable so the UI never blocks on it.
+final capabilitiesProvider = FutureProvider<Set<String>>((ref) async {
+  final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+  try {
+    final List<String> plugins = await repo.getPluginsList();
+    return plugins.toSet();
+  } on Object {
+    return const <String>{};
+  }
+});
+
+/// True when the server reports [plugin] as an enabled plugin.
+///
+/// When the capabilities have not resolved yet, or the `pluginslist` endpoint
+/// is unavailable (empty set), returns true so the UI degrades to showing all
+/// cards/sections rather than hiding them.
+bool hasPluginCapability(AsyncValue<Set<String>> capabilities, String plugin) {
+  final Set<String>? caps = capabilities.value;
+  return caps == null || caps.isEmpty || caps.contains(plugin);
+}
+
+/// Glances server version string (`GET /api/4/version`), or null when the
+/// server does not expose it.
+final serverVersionProvider = FutureProvider<String?>((ref) async {
+  final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+  try {
+    return await repo.getVersion();
+  } on Object {
+    return null;
+  }
+});
+
+/// Quick-look CPU / memory / load percentages (`GET /api/4/quicklook`).
+///
+/// Powers the at-a-glance strip on the home screen. Non-fatal: a failed fetch
+/// resolves to an empty map so the strip simply does not render.
+final quicklookProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final GlancesRepository repo = ref.watch(glancesRepositoryProvider);
+  try {
+    return await repo.getQuicklook();
+  } on Object {
+    return const <String, dynamic>{};
+  }
+});

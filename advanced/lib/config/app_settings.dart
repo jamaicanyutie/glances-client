@@ -18,6 +18,8 @@ class AppSettings {
     required this.allowInsecureTls,
     required this.pollingIntervalSeconds,
     required this.historyRefreshIntervalSeconds,
+    this.authUsername,
+    this.authPassword,
   });
 
   /// Defaults used on first launch: no server configured, TLS verification
@@ -43,11 +45,28 @@ class AppSettings {
   /// Seconds between CPU-history chart re-fetches.
   final int historyRefreshIntervalSeconds;
 
+  /// Optional HTTP Basic-auth username for protected Glances servers.
+  ///
+  /// Null/empty when the server is unauthenticated. Glances uses HTTP Basic
+  /// auth when `username`/`password` are set in its configuration; the client
+  /// sends them preemptively on every request.
+  final String? authUsername;
+
+  /// Optional HTTP Basic-auth password (see [authUsername]).
+  final String? authPassword;
+
+  /// True when HTTP Basic credentials are configured.
+  bool get hasAuth =>
+      (authUsername != null && authUsername!.isNotEmpty) ||
+      (authPassword != null && authPassword!.isNotEmpty);
+
   AppSettings copyWith({
     String? serverUrl,
     bool? allowInsecureTls,
     int? pollingIntervalSeconds,
     int? historyRefreshIntervalSeconds,
+    String? authUsername,
+    String? authPassword,
   }) {
     return AppSettings(
       serverUrl: serverUrl ?? this.serverUrl,
@@ -56,6 +75,8 @@ class AppSettings {
           pollingIntervalSeconds ?? this.pollingIntervalSeconds,
       historyRefreshIntervalSeconds:
           historyRefreshIntervalSeconds ?? this.historyRefreshIntervalSeconds,
+      authUsername: authUsername ?? this.authUsername,
+      authPassword: authPassword ?? this.authPassword,
     );
   }
 }
@@ -70,6 +91,8 @@ final class AppSettingsController extends AsyncNotifier<AppSettings> {
   static const String _keyAllowInsecureTls = 'settings.allowInsecureTls';
   static const String _keyPollingInterval = 'settings.pollingIntervalSeconds';
   static const String _keyHistoryInterval = 'settings.historyRefreshIntervalSeconds';
+  static const String _keyAuthUsername = 'settings.authUsername';
+  static const String _keyAuthPassword = 'settings.authPassword';
 
   @override
   Future<AppSettings> build() async {
@@ -81,6 +104,8 @@ final class AppSettingsController extends AsyncNotifier<AppSettings> {
           prefs.getInt(_keyPollingInterval) ?? kDefaultPollingIntervalSeconds,
       historyRefreshIntervalSeconds: prefs.getInt(_keyHistoryInterval) ??
           kDefaultHistoryRefreshIntervalSeconds,
+      authUsername: prefs.getString(_keyAuthUsername),
+      authPassword: prefs.getString(_keyAuthPassword),
     );
   }
 
@@ -94,6 +119,18 @@ final class AppSettingsController extends AsyncNotifier<AppSettings> {
     await prefs.setBool(_keyAllowInsecureTls, next.allowInsecureTls);
     await prefs.setInt(_keyPollingInterval, next.pollingIntervalSeconds);
     await prefs.setInt(_keyHistoryInterval, next.historyRefreshIntervalSeconds);
+    final String? username = next.authUsername;
+    if (username == null || username.isEmpty) {
+      await prefs.remove(_keyAuthUsername);
+    } else {
+      await prefs.setString(_keyAuthUsername, username);
+    }
+    final String? password = next.authPassword;
+    if (password == null || password.isEmpty) {
+      await prefs.remove(_keyAuthPassword);
+    } else {
+      await prefs.setString(_keyAuthPassword, password);
+    }
     state = AsyncData<AppSettings>(next);
   }
 
@@ -112,6 +149,21 @@ final class AppSettingsController extends AsyncNotifier<AppSettings> {
   /// Persists the history-chart re-fetch interval.
   Future<void> setHistoryRefreshIntervalSeconds(int seconds) =>
       _save(state.value!.copyWith(historyRefreshIntervalSeconds: seconds));
+
+  /// Persists the HTTP Basic-auth credentials.
+  Future<void> setAuth(String? username, String? password) =>
+      _save(state.value!.copyWith(authUsername: username, authPassword: password));
+
+  /// Clears the HTTP Basic-auth credentials.
+  Future<void> clearAuth() => _save(
+        AppSettings(
+          serverUrl: state.value!.serverUrl,
+          allowInsecureTls: state.value!.allowInsecureTls,
+          pollingIntervalSeconds: state.value!.pollingIntervalSeconds,
+          historyRefreshIntervalSeconds:
+              state.value!.historyRefreshIntervalSeconds,
+        ),
+      );
 }
 
 /// Provides the current [AppSettings].

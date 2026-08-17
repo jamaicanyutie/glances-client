@@ -18,7 +18,7 @@ import '../../utils/formatters.dart';
 /// Watches [allStatsProvider] for the total and per-category CPU percentages
 /// (refreshed every 2 seconds) and [cpuHistoryProvider] for the last 60
 /// samples rendered as a sparkline (refreshed every 5 seconds). Pull-to-refresh
-/// forces both providers.
+/// forces both providers. The overview and history share a single pane.
 class CpuScreen extends ConsumerWidget {
   const CpuScreen({super.key});
 

@@ -21,16 +21,22 @@ import '../../utils/formatters.dart';
 /// present when a container engine is available on the host. Pull-to-refresh
 /// re-fetches the snapshot.
 class DockerScreen extends ConsumerWidget {
-  const DockerScreen({super.key});
+  const DockerScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Services hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<GlancesAll> allStats = ref.watch(allStatsProvider);
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Services'),
-          actions: const <Widget>[SettingsButton()],
-        ),
+        appBar: showAppBar
+            ? AppBar(
+                title: const Text('Services'),
+                actions: const <Widget>[SettingsButton()],
+              )
+            : null,
       body: allStats.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,

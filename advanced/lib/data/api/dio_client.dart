@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -31,6 +32,24 @@ Dio buildDio(ServerConfig config) {
       // successor of the `badCertificateCallback` option that dio 5.10
       // removed from [IOHttpClientAdapter].
       validateCertificate: (cert, host, port) => true,
+    );
+  }
+
+  if (config.hasAuth) {
+    // Glances protects its REST API with HTTP Basic auth when a username and
+    // password are configured. The credentials are sent preemptively on every
+    // request; the server replies with 401 when they are wrong, which the
+    // repository surfaces as an ApiException.
+    final String encoded = base64Encode(
+      utf8.encode('${config.authUsername ?? ''}:${config.authPassword ?? ''}'),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.headers['Authorization'] = 'Basic $encoded';
+          handler.next(options);
+        },
+      ),
     );
   }
 

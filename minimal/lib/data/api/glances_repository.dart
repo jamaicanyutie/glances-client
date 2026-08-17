@@ -168,6 +168,19 @@ class GlancesRepository {
         .toList();
   }
 
+  /// Fetches the list of enabled plugins (`GET /api/4/pluginslist`).
+  ///
+  /// The server returns a plain list of plugin names (`["cpu", "mem", ...]`),
+  /// where a plugin appears only when it is enabled on the host. This drives
+  /// capability detection: hub sub-tabs for plugins the server does not report
+  /// are hidden.
+  Future<List<String>> getPluginsList() async {
+    final path = '$_apiPrefix/pluginslist';
+    return _requireList(await _getJson(path), path)
+        .whereType<String>()
+        .toList();
+  }
+
   /// Fetches system load averages (`GET /api/4/load`).
   Future<LoadInfo> getLoad() async {
     final path = '$_apiPrefix/load';

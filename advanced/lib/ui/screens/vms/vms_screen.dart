@@ -20,16 +20,22 @@ import '../../utils/formatters.dart';
 /// hosts without one report an empty list, which renders as a friendly empty
 /// state.
 class VmsScreen extends ConsumerWidget {
-  const VmsScreen({super.key});
+  const VmsScreen({super.key, this.showAppBar = true});
+
+  /// When false the screen renders without its own AppBar, for embedding as a
+  /// sub-tab inside the Services hub (which owns the AppBar + TabBar).
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<VmInfo>> vms = ref.watch(vmsProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Virtual Machines'),
-        actions: const <Widget>[SettingsButton()],
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Virtual Machines'),
+              actions: const <Widget>[SettingsButton()],
+            )
+          : null,
       body: vms.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
